@@ -1,0 +1,2949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kuku Farm</title>
+<style>
+  :root {
+    --bg: #1a120b;
+    --panel: #2a1d12;
+    --card: #342416;
+    --line: #4a3522;
+    --ink: #fff7e8;
+    --muted: rgba(255, 247, 232, 0.62);
+    --accent: #e8a33d;
+    --red: #d9534f;
+    --green: #3fae5a;
+    --blue: #4aa3df;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { display: flex; flex-direction: column; min-height: 100vh; user-select: none; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+    padding: 10px 16px; background: var(--panel); border-bottom: 2px solid var(--accent); }
+  .brand { font-size: 20px; font-weight: 800; letter-spacing: .3px; }
+  .brand span { color: var(--accent); font-weight: 600; font-size: 14px; margin-left: 4px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+  .chip { background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+    padding: 4px 10px; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .chip.money { color: #ffd479; font-weight: 700; }
+  .ctrls { display: flex; gap: 4px; }
+  .ctrls button { background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    padding: 5px 10px; min-width: 40px; font-size: 14px; }
+  .ctrls button.on { background: var(--accent); color: #1a120b; border-color: var(--accent); font-weight: 700; }
+
+  main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; padding: 12px; }
+  .stage { position: relative; align-self: start; }
+  canvas#farm { display: block; width: 100%; aspect-ratio: 960 / 600; border-radius: 12px;
+    background: #86b94a; touch-action: manipulation; }
+  .hintbar { margin-top: 8px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .hintbar kbd, .btns kbd { background: var(--card); border: 1px solid var(--line); border-radius: 4px;
+    padding: 0 5px; font-size: 11px; color: var(--muted); }
+
+  #toasts { position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    width: min(92%, 560px); display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+  .toast { background: rgba(22, 15, 9, .88); border-left: 4px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; line-height: 1.4; animation: pop .25s ease-out; }
+  .toast.bad { border-color: var(--red); }
+  .toast.good { border-color: var(--green); }
+  .toast.warn { border-color: #f0c040; }
+  @keyframes pop { from { transform: translateY(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  aside { display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 80px); overflow-y: auto;
+    padding-right: 2px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .card h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent);
+    display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .card h3 small { color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 12px; }
+  .counts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; text-align: center; }
+  .counts div { background: var(--card); border-radius: 8px; padding: 6px 2px; font-size: 11px; color: var(--muted); }
+  .counts b { display: block; font-size: 18px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .meter { display: grid; grid-template-columns: 78px 1fr 36px; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--muted); margin: 5px 0; }
+  .meter span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .bar { height: 8px; background: var(--card); border-radius: 99px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 50%; background: var(--green); border-radius: 99px; transition: width .3s; }
+  .bar i.low { background: var(--red); }
+  .bar i.mid { background: #f0c040; }
+  .alerts { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+  .alerts div { background: rgba(217, 83, 79, .14); border-radius: 6px; padding: 4px 8px; }
+  .alerts div.ok { background: rgba(63, 174, 90, .14); }
+
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .btns button { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 6px;
+    font-size: 13px; line-height: 1.25; text-align: left; min-height: 44px; }
+  .btns button:hover:not(:disabled) { border-color: var(--accent); }
+  .btns button:disabled { opacity: .42; cursor: not-allowed; }
+  .btns button.hot { border-color: #f0c040; box-shadow: 0 0 0 2px rgba(240, 192, 64, .35); }
+  .btns button.wide { grid-column: span 2; }
+  .btns button small { display: block; color: var(--muted); font-size: 11px; }
+  .prices { font-size: 12px; color: var(--muted); display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px;
+    margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+  .prices b { color: var(--ink); font-weight: 600; }
+  .up { color: var(--green); } .down { color: var(--red); }
+
+  .upgs { display: flex; flex-direction: column; gap: 6px; }
+  .upg { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; background: var(--card);
+    border-radius: 8px; padding: 7px 8px; font-size: 13px; }
+  .upg small { display: block; color: var(--muted); font-size: 11px; }
+  .upg button { background: var(--accent); color: #1a120b; border: 0; border-radius: 6px; padding: 6px 8px;
+    font-weight: 700; font-size: 12px; white-space: nowrap; }
+  .upg button:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
+  .upg.owned { opacity: .6; }
+  .upg .obtns { display: flex; gap: 4px; }
+  .upg button.alt { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  .upg.late small { color: #f2a19e; }
+  #repTxt { color: #ffd479; letter-spacing: 1px; }
+  .empty { font-size: 12px; color: var(--muted); }
+
+  #goals { list-style: none; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+  #goals li { color: var(--muted); }
+  #goals li.done { color: var(--green); }
+  #log { list-style: none; font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px;
+    max-height: 170px; overflow-y: auto; margin-bottom: 8px; }
+  #log li b { color: var(--accent); font-weight: 600; }
+  #log li.bad { color: #f2a19e; }
+  #log li.good { color: #9fdcad; }
+  .ghost { background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
+    color: var(--muted); font-size: 12px; }
+
+  .modal { position: fixed; inset: 0; background: rgba(10, 6, 3, .72); display: flex; align-items: center;
+    justify-content: center; padding: 16px; z-index: 10; }
+  .modal.hidden { display: none; }
+  .modal .box { background: var(--panel); border: 2px solid var(--accent); border-radius: 14px; padding: 22px;
+    max-width: 520px; width: 100%; line-height: 1.55; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-size: 24px; margin-bottom: 10px; }
+  .modal p, .modal li { font-size: 15px; color: var(--muted); margin-bottom: 8px; }
+  .modal ul { padding-left: 18px; margin-bottom: 8px; }
+  .modal .step { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .modal details { margin-top: 6px; }
+  .modal summary { cursor: pointer; color: var(--ink); font-weight: 700; margin-bottom: 6px; }
+  /* Phones and tablets have no keyboard, so the key list is just noise there. */
+  @media (hover: none) { .hintbar .keys, .btns kbd { display: none; } }
+  .modal b { color: var(--ink); }
+  .modal .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .modal .row button { background: var(--accent); color: #1a120b; border: 0; border-radius: 8px;
+    padding: 10px 16px; font-weight: 700; font-size: 15px; }
+  .modal .row button.alt { background: var(--card); color: var(--ink); border: 1px solid var(--line); }
+
+  .chip.event { border-color: #f0c040; color: #ffe49a; }
+  button.chip.rank { cursor: pointer; color: #ffd479; }
+  .ach { list-style: none; display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+  .ach li { background: var(--card); border-radius: 8px; padding: 6px 8px; font-size: 13px; color: var(--ink); }
+  .ach li.done { opacity: .75; }
+  .ach li small { display: block; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .ach .bar { margin-top: 4px; height: 6px; }
+  .ranks { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 10px; }
+  .ranks span { font-size: 12px; padding: 3px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+  .ranks span.on { background: var(--accent); color: #1a120b; border-color: var(--accent); font-weight: 700; }
+  .farmtabs { display: flex; gap: 6px; margin-top: 8px; }
+  .farmtabs[hidden] { display: none; }
+  .farmtabs button { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+    font-size: 14px; font-weight: 600; min-height: 44px; }
+  .farmtabs button small { color: var(--muted); font-weight: 500; margin-left: 4px; }
+  .farmtabs button.on { background: var(--accent); color: #1a120b; border-color: var(--accent); }
+  .farmtabs button.on small { color: rgba(26, 18, 11, .7); }
+  .farmtabs button.warn { border-color: #f0c040; box-shadow: 0 0 0 2px rgba(240, 192, 64, .35); }
+  .btns.hire { margin-top: 8px; }
+  .btns.hire button { min-height: 40px; padding: 6px; font-size: 12px; }
+  .sub { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 4px 0 0; }
+  .upg em.tag { font-style: normal; font-size: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 0 5px; margin-left: 4px; white-space: nowrap; }
+  .recsum { font-size: 13px; color: var(--muted); margin-bottom: 8px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+  .recsum b { color: var(--ink); }
+  .modal .box.wide { max-width: 640px; }
+  .rec-chart { width: 100%; height: auto; display: block; margin: 4px 0 10px; }
+  .rec-chart text { font: 11px system-ui, sans-serif; fill: rgba(255, 247, 232, 0.62); }
+  .rec-chart .hit { fill: transparent; cursor: pointer; }
+  .rec-chart .hit:hover, .rec-chart .hit.on { fill: rgba(255, 247, 232, 0.07); }
+  .legend { display: flex; gap: 14px; font-size: 13px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .rec-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .rec-table th, .rec-table td { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+  .rec-table th:first-child, .rec-table td:first-child { text-align: left; }
+  .rec-table th { color: var(--accent); font-weight: 600; font-size: 12px; }
+  .rec-table td { color: var(--ink); }
+  .rec-table tr.total td { font-weight: 700; }
+  .rec-tip { min-height: 20px; font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; padding: 8px 16px 16px; }
+    aside { max-height: none; overflow: visible; }
+    header { padding: 8px 16px; }
+    .chip { font-size: 13px; padding: 3px 8px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">🐔 Kuku Farm <span>Meru</span></div>
+  <div class="chips">
+    <span class="chip" id="cDay">Day 1</span>
+    <span class="chip" id="cClock">06:00</span>
+    <span class="chip money" id="cCash">KES 0</span>
+    <span class="chip" id="cEggs">🥚 0</span>
+    <span class="chip" id="cFeed">🌾 0 kg</span>
+    <span class="chip" id="cEvent" hidden></span>
+    <button class="chip rank" id="cRank" data-a="ach" title="Achievements and rank">🏅 Mkulima</button>
+  </div>
+  <div class="ctrls">
+    <button data-speed="0" title="Pause (Space)">⏸</button>
+    <button data-speed="1">1×</button>
+    <button data-speed="2">2×</button>
+    <button data-speed="4">4×</button>
+    <button id="bMute" title="Sound">🔊</button>
+    <button id="bHelp" title="How to play">❓</button>
+  </div>
+</header>
+
+<main>
+  <section class="stage">
+    <canvas id="farm" width="960" height="600"></canvas>
+    <div id="toasts"></div>
+    <div class="farmtabs" id="farmTabs" hidden></div>
+    <p class="hintbar">Tap or click eggs in the yard before dark. Tap the <b>hawk</b> to chase it off. Tap the feeder, drinker, nest box or coop door to use them. Stuck? Press ❓ for the guide.
+      <span class="keys">Keys: <kbd>F</kbd> feed · <kbd>W</kbd> water · <kbd>E</kbd> nest eggs · <kbd>D</kbd> door · <kbd>S</kbd> switch farm · <kbd>Space</kbd> pause</span></p>
+  </section>
+
+  <aside>
+    <div class="card">
+      <h3><span id="flockName">Flock</span> <small id="capTxt"></small></h3>
+      <div class="counts">
+        <div><b id="nHen">0</b><span id="lHen">Hens</span></div>
+        <div><b id="nPullet">0</b><span id="lPullet">Pullets</span></div>
+        <div><b id="nChick">0</b><span id="lChick">Chicks</span></div>
+        <div><b id="nBroiler">0</b><span id="lBroiler">Broilers</span></div>
+      </div>
+      <div class="meter"><span>Fed</span><div class="bar"><i id="mFed"></i></div><span id="vFed"></span></div>
+      <div class="meter"><span>Water</span><div class="bar"><i id="mWater"></i></div><span id="vWater"></span></div>
+      <div class="meter"><span>Health</span><div class="bar"><i id="mHealth"></i></div><span id="vHealth"></span></div>
+      <div class="meter"><span>Clean litter</span><div class="bar"><i id="mClean"></i></div><span id="vClean"></span></div>
+      <div class="alerts" id="alerts"></div>
+    </div>
+
+    <div class="card">
+      <h3>Chores <small id="choreFarm"></small></h3>
+      <div class="btns">
+        <button data-a="feeder" id="aFeeder"></button>
+        <button data-a="water" id="aWater"></button>
+        <button data-a="nest" id="aNest"></button>
+        <button data-a="door" id="aDoor"></button>
+        <button data-a="clean" id="aClean"></button>
+        <button data-a="vacc" id="aVacc"></button>
+        <button data-a="treat" id="aTreat" class="wide"></button>
+        <button data-a="incubate" id="aIncubate" class="wide"></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Staff <small id="staffTxt"></small></h3>
+      <div class="upgs" id="staff"></div>
+      <div class="btns hire" id="hire"></div>
+    </div>
+
+    <div class="card">
+      <h3>Market <small>Meru town</small></h3>
+      <div class="prices" id="prices"></div>
+      <div class="btns">
+        <button data-a="buyFeed" id="aBuyFeed"></button>
+        <button data-a="sellEggs" id="aSellEggs"></button>
+        <button data-a="buyK" id="aBuyK"></button>
+        <button data-a="buyB" id="aBuyB"></button>
+        <button data-a="sellBroilers" id="aSellBroilers"></button>
+        <button data-a="sellHen" id="aSellHen"></button>
+        <button data-a="cull" id="aCull" class="wide"></button>
+        <button data-a="sellFeed" id="aSellFeed" class="wide"></button>
+      </div>
+    </div>
+
+    <div class="card" id="spCard" hidden>
+      <h3>Special birds <small>market</small></h3>
+      <div class="prices" id="spPrices"></div>
+      <div class="btns">
+        <button data-a="buySp" data-o="q" id="aBuyQ"></button>
+        <button data-a="buySp" data-o="d" id="aBuyD"></button>
+        <button data-a="buySp" data-o="t" id="aBuyT"></button>
+        <button data-a="buySp" data-o="g" id="aBuyG"></button>
+        <button data-a="sellSp" id="aSellSp"></button>
+        <button data-a="sellQEggs" id="aSellQE"></button>
+      </div>
+    </div>
+
+    <div class="card" id="bizCard" hidden>
+      <h3>Businesses <small>hatchery, feed, outlet</small></h3>
+      <div class="recsum" id="biz"></div>
+      <div class="btns"><button data-a="hatchToggle" id="aHatch" class="wide"></button></div>
+    </div>
+
+    <div class="card">
+      <h3>Orders <small id="repTxt"></small></h3>
+      <div class="upgs" id="orders"></div>
+    </div>
+
+    <div class="card">
+      <h3>Contracts <small id="conTxt"></small></h3>
+      <div class="upgs" id="contracts"></div>
+    </div>
+
+    <div class="card">
+      <h3>Loans <small>chama, SACCO, bank</small></h3>
+      <div class="upgs" id="loans"></div>
+    </div>
+
+    <div class="card">
+      <h3>Records <small>yesterday</small></h3>
+      <div id="recSum" class="recsum"></div>
+      <button class="ghost" data-a="records" id="bRecords">📊 Open farm records</button>
+    </div>
+
+    <div class="card">
+      <h3>Upgrades <small id="upgFarm"></small></h3>
+      <div class="upgs" id="upgs"></div>
+    </div>
+
+    <div class="card">
+      <h3>Goals</h3>
+      <ul id="goals"></ul>
+      <button class="ghost" data-a="ach" style="margin-top:8px">🏅 Achievements and rank</button>
+    </div>
+
+    <div class="card">
+      <h3>Farm diary</h3>
+      <ul id="log"></ul>
+      <button class="ghost" id="bNew">Start a new farm</button>
+    </div>
+  </aside>
+</main>
+
+<div class="modal hidden" id="modal"><div class="box" id="modalBox"></div></div>
+
+<script>
+(() => {
+  'use strict';
+  const W = 960, H = 600;
+  const DUSK = 18.5;
+  const DAY_REAL = 80, NIGHT_REAL = 20;   // real seconds at 1x for 06:00–18:30 and 18:30–06:00
+  const KEY = 'kukuFarm.save.v1';
+  const FEAT = 4;   // feature level of the save: 1 orders, 2 seasons/loans/records, 3 two farms, 4 Kuku Empire
+  // Staff. Wages build up daily and are paid every 7 days, plus the employer's statutory contributions (game rate 7%).
+  const STATUTORY = 1.07, MAX_STAFF = 40;
+  const ROLES = {
+    hand: { name: 'Farmhand', wage: 250, farm: true, desc: 'Fills feeders and drinkers and collects nest eggs at 8, 12 and 17. Covers about 600 birds per skill level' },
+    collect: { name: 'Egg collector', wage: 200, farm: true, desc: 'Collects nest and yard eggs every 2 hours and breaks fewer. Covers about 1,500 hens per skill level' },
+    watch: { name: 'Night watchman', wage: 300, farm: true, desc: 'Shuts the coop at dusk and keeps thieves away' },
+    driver: { name: 'Driver', wage: 350, need: 'truck', desc: 'Delivers orders and contract loads himself at 10:00' },
+    manager: { name: 'Farm manager', wage: 1000, max: 1, desc: 'At 07:00 buys feed, sells eggs and broilers at good prices; from skill 2 also culls spent hens and restocks chicks' },
+    cook: { name: 'Cook', wage: 600, need: 'outlet', desc: 'Runs the kuku choma outlet in Meru town' },
+    attend: { name: 'Hatchery attendant', wage: 400, need: 'hatchery', desc: 'Runs the hatchery that sells day-old chicks' },
+  };
+  const NAMES = ['Mwenda', 'Kinyua', 'Kendi', 'Gatwiri', 'Mutuma', 'Nkatha', 'Murithi', 'Karimi', 'Kawira', 'Muthomi', 'Makena', 'Kirimi', 'Mugambi', 'Nkirote',
+    'Kathure', 'Gitonga', 'Mwiti', 'Karambu', 'Njeru', 'Kagendo', 'Muriuki', 'Kananu', 'Mbaabu', 'Ciku', 'Koome', 'Ntinyari', 'Kobia', 'Mukiri', 'Nyaga', 'Kaimenyi'];
+  const COOP_CAPS = [30, 80, 180, 400, 700, 1200, 2500, 5000];
+  const COOP_COSTS = [6000, 20000, 60000, 150000, 300000, 600000, 1200000];
+  // The separate broiler farm: built once the kienyeji coop holds 180, then expanded on its own ladder.
+  const B_CAPS = [200, 500, 1000, 2500, 5000];
+  const B_COSTS = [30000, 80000, 250000, 600000];
+  const BFARM_COST = 40000;
+  // The special birds farm (quail, ducks, turkeys, guinea fowl): built from a 400-bird kienyeji coop.
+  const X_CAPS = [300, 800, 2000, 5000];
+  const X_COSTS = [60000, 200000, 600000];
+  const XFARM_COST = 150000;
+  // Game prices per bird. Quail and guinea fowl are wildlife in Kenya: keeping them needs a KWS permit.
+  const SPECIES = {
+    q: { name: 'Quail', plural: 'quail', chick: 40, ready: 5, feed: 0.025, meat: 280, kws: true, lay: 4 },
+    d: { name: 'Duck', plural: 'ducks', chick: 250, ready: 9, feed: 0.18, meat: 1100, drink: 3 },
+    t: { name: 'Turkey', plural: 'turkeys', chick: 700, ready: 14, feed: 0.3, meat: 3800, xmas: 1.8 },
+    g: { name: 'Guinea fowl', plural: 'guinea fowl', chick: 300, ready: 10, feed: 0.1, meat: 1400, kws: true },
+  };
+  // Equipment that belongs to one farm; everything else in UPGRADES serves the whole business.
+  const FARM_UPG = ['tube', 'trough', 'auto', 'autodoor', 'solar', 'dog', 'biosec'];
+  const VET_FEE = 500, MANURE_EACH = 6, DRAW_MAX = 450;
+  // Hens lay well to 50 days, taper off, and are "spent" (worth culling) from 75.
+  const SPENT_AGE = 75;
+  const INSURE_PAYOUT = 300;
+  // Flat-interest loans, repaid in equal daily instalments. Bigger loans need a bigger flock and a better name.
+  const LOANS = [
+    { id: 'chama', name: 'Chama loan', who: 'your chama',amt: 20000, rate: 0.10, days: 10, birds: 0, rep: 0, minDay: 3 },
+    { id: 'sacco', name: 'SACCO loan', who: 'the Meru farmers\' SACCO', amt: 60000, rate: 0.15, days: 15, birds: 60, rep: 2.5 },
+    { id: 'sacco2', name: 'SACCO development loan', who: 'the Meru farmers\' SACCO', amt: 150000, rate: 0.18, days: 20, birds: 150, rep: 3 },
+    { id: 'bank', name: 'Agribusiness bank loan', who: 'the bank', amt: 400000, rate: 0.20, days: 30, birds: 350, rep: 3.5 },
+  ];
+  // Christmas and Easter arrive on a fixed calendar so a farmer can raise broilers for them.
+  const FESTIVE_FIRST = 35, FESTIVE_EVERY = 40, FESTIVE_LEN = 5;
+  const COST_KINDS = ['feed', 'chicks', 'health', 'labour', 'loan', 'upkeep', 'tax', 'other'];
+  // kg of feed per bird per day; water is FEED x 2.2 litres.
+  // Real-life anchors (2026): a layer eats ~120-130 g a day; a broiler eats 3-5 kg over its cycle (FCR ~1.6).
+  const FEED = { chick: 0.04, pullet: 0.08, hen: 0.125, broiler: 0.55 };
+  const PRICE = { kChick: 120, bChick: 105, hen: 850, clean: 300, vacc: 20, treat: 800 };
+  // Running costs and the taxman. Game rates, loosely based on Kenyan ones.
+  const POWER_EACH = 0.3, UPKEEP_RATE = 0.0008, TOT_RATE = 0.015, PERMIT_FEE = 15000, BIOSEC_COST = 60000;
+  const DOOR = { x: 140, y: 268, w: 44, h: 62 };
+  const DOOR_PT = { x: 162, y: 352 };
+  const NEST = { x: 262, y: 262, w: 64, h: 50 };
+  const FEEDER = { x: 440, y: 380, w: 70, h: 64 };
+  const DRINK = { x: 590, y: 380, w: 70, h: 64 };
+  const YARD = { x0: 70, x1: 905, y0: 372, y1: 572 };
+
+  const UPGRADES = [
+    { id: 'tube', name: 'Tube feeders', desc: 'Feeder holds 25 kg', cost: 3500 },
+    { id: 'auto', name: 'Nipple drinkers + tank', desc: 'Water never runs out', cost: 7000 },
+    { id: 'dog', name: 'Guard dog, Simba', desc: 'Chases hawks and guards the coop at night', cost: 6000 },
+    { id: 'solar', name: 'Solar lamp', desc: '+12% laying, and it lights the coop', cost: 5000 },
+    { id: 'autodoor', name: 'Automatic coop door', desc: 'Closes itself at dusk', cost: 9000 },
+
+    { id: 'incubator', name: 'Egg incubator', desc: 'Hatch 20 of your eggs into chicks', cost: 10000 },
+    { id: 'brooder', name: 'Gas brooder', desc: 'Warm chicks grow 25% faster', cost: 8000 },
+    { id: 'trough', name: 'Feed trough line', desc: 'Feeder holds 80 kg', cost: 12000, req: 'tube' },
+    { id: 'mpesa', name: 'M-Pesa till + WhatsApp orders', desc: 'One more order slot, and buyers call more often', cost: 4000, minCoop: 1 },
+    { id: 'tank', name: 'Rainwater tank, 10,000 L', desc: 'No paid water bowser for the nipple drinkers in a drought', cost: 25000, minCoop: 2 },
+    { id: 'biosec', name: 'Biosecurity: footbaths, fence, visitor log', desc: 'Cuts the risk of bird flu by 85%, and Newcastle and coccidiosis by half, on this farm', cost: BIOSEC_COST, minCoop: 2 },
+    { id: 'kws', name: 'KWS wildlife farming permit', desc: 'The Kenya Wildlife Service permit you need to keep quail and guinea fowl', cost: 15000, minCoop: 3 },
+    { id: 'hatchery', name: 'Commercial hatchery', desc: 'Hatches spare eggs into day-old chicks for neighbouring farmers. Needs a hatchery attendant', cost: 180000, req: 'incubator2', minCoop: 4 },
+    { id: 'biogas', name: 'Biogas digester', desc: 'Turns manure into gas and power: power costs 60% less, but manure sales halve', cost: 250000, minCoop: 4 },
+    { id: 'outlet', name: 'Kuku choma outlet in Meru town', desc: 'Sells cooked chicken every day from ready broilers and spent hens. Needs a cook', cost: 400000, req: 'slaughter', minCoop: 4 },
+    { id: 'insure', name: 'Livestock insurance', desc: `KES 1 a bird a day. Pays KES ${INSURE_PAYOUT} for each bird lost to disease, hawks or predators`, cost: 5000, minCoop: 2 },
+    // Business upgrades: shown once the coop holds 180+ birds, when there is enough output to process.
+    { id: 'vet', name: 'Vet on retainer', desc: `Vaccinates and treats the flock every morning. KES ${VET_FEE}/day plus drugs`, cost: 15000, minCoop: 2 },
+    { id: 'manure', name: 'Manure shed', desc: `Cleaning the coop sells the old litter as manure: KES ${MANURE_EACH} a bird`, cost: 20000, minCoop: 2 },
+    { id: 'grading', name: 'Egg grading + branded trays', desc: 'Eggs sell for 20% more', cost: 35000, minCoop: 2 },
+    { id: 'mill', name: 'Feed mixing machine', desc: 'Mix your own feed: bags cost 25% less', cost: 45000, minCoop: 2 },
+    { id: 'slaughter', name: 'Slaughter slab + cold room', desc: 'Dressed broilers sell for 30% more', cost: 60000, minCoop: 2 },
+    { id: 'contract', name: 'Miller supply contract', desc: 'Feed shortages no longer raise your feed price', cost: 40000, minCoop: 3 },
+    { id: 'incubator2', name: 'Big incubator', desc: 'Hatch 100 eggs into about 80 chicks: restock after culling', cost: 40000, req: 'incubator', minCoop: 3 },
+    { id: 'truck', name: 'Pickup truck', desc: 'Nairobi buyers, one more order slot, bigger orders that pay 10% more', cost: 120000, minCoop: 3 },
+  ];
+
+  // Customer orders. `truck` customers only call once you can deliver to Nairobi.
+  const CUSTOMERS = [
+    { who: 'Nkubu boarding school', item: 'eggs' },
+    { who: 'A hotel in Meru town', item: 'eggs' },
+    { who: 'A Meru supermarket', item: 'eggs' },
+    { who: 'Makutano butchery', item: 'broilers' },
+    { who: 'A wedding (harusi) in Maua', item: 'broilers' },
+    { who: 'A festive-season buyer', item: 'hens' },
+    { who: 'A Nairobi restaurant chain', item: 'broilers', truck: true },
+    { who: 'A Nairobi supermarket', item: 'eggs', truck: true },
+  ];
+
+  const GOALS = [
+    { id: 'egg', t: 'Collect your first egg', ok: () => s.stats.collected >= 1 },
+    { id: 'tray', t: 'Sell a full tray (30 eggs)', ok: () => s.stats.sold >= 30 },
+    { id: 'hawk', t: 'Chase off a hawk', ok: () => s.stats.hawks >= 1 },
+    { id: 'bro', t: 'Sell 10 broilers', ok: () => s.stats.broilersSold >= 10 },
+    { id: 'order', t: 'Deliver your first customer order', ok: () => s.stats.orders >= 1 },
+    { id: 'f30', t: 'Grow your flock to 30 birds', ok: () => totalBirds() >= 30 },
+    { id: 'vac', t: 'Fully vaccinate a flock of 20+', ok: () => totalBirds() >= 20 && allBirds().every(vaccinated) },
+    // Money goals count what you own, not what you borrowed.
+    { id: 'c50', t: 'Save KES 50,000', ok: () => netWorth() >= 50000 },
+    { id: 'f100', t: 'Keep 100 birds', ok: () => totalBirds() >= 100 },
+    { id: 'baron', t: 'Become a Meru poultry baron: KES 250,000', ok: () => netWorth() >= 250000 },
+    { id: 'rep5', t: 'Earn a 5-star reputation with buyers', ok: () => s.rep >= 5 },
+    { id: 'loan', t: 'Take a loan and repay it in full', ok: () => s.stats.loansRepaid >= 1 },
+    { id: 'cull', t: 'Cull 20 spent hens and restock', ok: () => s.stats.culled >= 20 },
+    { id: 'orders25', t: 'Deliver 25 customer orders', ok: () => s.stats.orders >= 25 },
+    { id: 'bfarm', t: 'Build a separate broiler farm', ok: () => !!s.bfarm },
+    { id: 'f700', t: 'Keep 700 birds', ok: () => totalBirds() >= 700 },
+    { id: 'tycoon', t: 'Become a Mt Kenya poultry tycoon: KES 1,000,000', ok: () => netWorth() >= 1000000 },
+    { id: 'f5000', t: 'Keep 5,000 birds on one farm', ok: () => farms().some(f => f.birds.length >= 5000) },
+    { id: 'mogul', t: 'Become an East Africa poultry mogul: KES 5,000,000', ok: () => netWorth() >= 5000000 },
+  ];
+
+  // Long-term achievements. p() returns [progress, target]; done when progress reaches the target.
+  const maxSkill = () => s.staff.reduce((m, w) => Math.max(m, w.skill), 0);
+  const ACH = [
+    { id: 'contract1', t: 'Complete your first supply contract', p: () => [s.stats.contracts, 1] },
+    { id: 'contracts10', t: 'Complete 10 supply contracts', p: () => [s.stats.contracts, 10] },
+    { id: 'loads100', t: 'Deliver 100 contract loads', p: () => [s.stats.loads, 100] },
+    { id: 'rx5m', t: 'Collect KES 5,000,000 of contract invoices', p: () => [s.stats.collectedRx, 5e6] },
+    { id: 'staff10', t: 'Employ 10 workers at once', p: () => [s.staff.length, 10] },
+    { id: 'staff25', t: 'Employ 25 workers at once', p: () => [s.staff.length, 25] },
+    { id: 'skill3', t: 'Train a worker to skill 3', p: () => [maxSkill(), 3] },
+    { id: 'kinds', t: 'Raise all six kinds of bird', p: () => [Object.keys(s.seen).length, 6] },
+    { id: 'turkeys', t: 'Sell 100 turkeys at Christmas', p: () => [s.stats.xmasTurkeys, 100] },
+    { id: 'quail', t: 'Sell 10,000 quail eggs', p: () => [s.stats.qSold, 1e4] },
+    { id: 'eggs', t: 'Sell 100,000 eggs', p: () => [s.stats.sold, 1e5] },
+    { id: 'broilers', t: 'Sell 10,000 broilers', p: () => [s.stats.broilersSold, 1e4] },
+    { id: 'orders100', t: 'Deliver 100 customer orders', p: () => [s.stats.orders, 100] },
+    { id: 'plates', t: 'Serve 5,000 plates of kuku choma', p: () => [s.stats.plates, 5000] },
+    { id: 'doc', t: 'Sell 10,000 day-old chicks from your hatchery', p: () => [s.stats.docSold, 1e4] },
+    { id: 'feed', t: 'Sell 500 bags of feed to neighbours', p: () => [s.stats.feedSold, 500] },
+    { id: 'tax', t: 'Pay KES 1,000,000 in taxes and permits', p: () => [s.stats.taxPaid, 1e6] },
+    { id: 'loans3', t: 'Repay 3 loans in full', p: () => [s.stats.loansRepaid, 3] },
+    { id: 'rep30', t: 'Hold a 5★ reputation for 30 days in a row', p: () => [s.streak.rep5, 30] },
+    { id: 'clean30', t: '30 days in a row with no bird lost to disease, hunger, thieves or predators', p: () => [s.streak.clean, 30] },
+    { id: 'safe60', t: '60 days in a row with 1,000+ birds and nothing stolen', p: () => [s.streak.noTheft, 60] },
+    { id: 'flu', t: 'Come through a bird flu scare without losing a farm', p: () => [s.stats.fluSurvived || 0, 1] },
+    { id: 'rival', t: 'Push the rival down to 5% of buyers', p: () => [s.rival && s.rival.share <= 0.05 ? 1 : 0, 1] },
+    { id: 'three', t: 'Own all three farms', p: () => [farms().length, 3] },
+    { id: 'twofull', t: 'Keep 5,000 birds on two farms at once', p: () => [farms().filter(f => f.birds.length >= 5000).length, 2] },
+    { id: 'biosec', t: 'Put biosecurity on all three farms', p: () => [farms().filter(f => f.upg.biosec).length, 3] },
+    { id: 'hawks', t: 'Chase off 100 hawks', p: () => [s.stats.hawks, 100] },
+    { id: 'bigday', t: 'Take in KES 500,000 in a single day', p: () => [s.stats.bestDay || 0, 5e5] },
+    { id: 'nw10', t: 'Reach a net worth of KES 10,000,000', p: () => [Math.max(0, netWorth()), 1e7] },
+    { id: 'nw25', t: 'Reach a net worth of KES 25,000,000', p: () => [Math.max(0, netWorth()), 2.5e7] },
+  ];
+  // Rank needs both: achievements show you can farm, net worth shows it pays.
+  const RANKS = [
+    { name: 'Mkulima', ach: 0, nw: 0 },
+    { name: 'Mfugaji', ach: 3, nw: 100000 },
+    { name: 'Farm owner', ach: 6, nw: 500000 },
+    { name: 'Poultry baron', ach: 10, nw: 2e6 },
+    { name: 'Tycoon', ach: 15, nw: 7e6 },
+    { name: 'Mogul', ach: 20, nw: 15e6 },
+    { name: 'Legend of Mt Kenya', ach: 30, nw: 3e7 },
+  ];
+  const achCount = () => ACH.filter(a => s.ach[a.id]).length;
+  function rank() {
+    const n = achCount(), nw = netWorth();
+    let r = RANKS[0];
+    for (const x of RANKS) if (n >= x.ach && nw >= x.nw) r = x;
+    return r;
+  }
+
+  // Seeded RNG for everything that changes the farm, so tests are repeatable.
+  // Cosmetic motion uses Math.random.
+  let seed = (Date.now() % 2147483646) + 1;
+  function rng() { seed = seed * 16807 % 2147483647; return (seed - 1) / 2147483646; }
+  function setSeed(n) { seed = (Math.abs(Math.floor(n)) % 2147483646) + 1; }
+
+  const $ = id => document.getElementById(id);
+  const cv = $('farm');
+  let ctx = cv.getContext('2d');   // swapped briefly while painting bird sprites
+  const DPR = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = W * DPR; cv.height = H * DPR;
+
+  let s = null;              // saved farm state; its top-level flock fields are the kienyeji farm
+  let F = null;              // the farm being simulated or shown: s itself, or s.bfarm
+  let hawk = null;           // transient
+  let speed = 1, lastSpeed = 1;
+  let modalOpen = false;
+  let floats = [];
+  let pendingDeaths = {};
+  let muted = false;
+  try { muted = localStorage.getItem('kukuFarm.mute') === '1'; } catch (e) { /* storage blocked: default to sound on */ }
+
+  // ---------- helpers ----------
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const hourOf = T => ((T % 24) + 24) % 24;
+  const dayOf = T => Math.floor((T - 6) / 24) + 1;
+  const isDayH = h => h >= 6 && h < DUSK;
+  const crossed = (a, b, H0) => Math.floor((b - H0) / 24) > Math.floor((a - H0) / 24);
+  const kes = n => 'KES ' + Math.round(n).toLocaleString('en-KE');
+  const kg = n => (n >= 10 ? Math.round(n) : Math.round(n * 10) / 10);
+  const inRect = (x, y, r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  const isB = f => !!(f && f.broiler);
+  const isX = f => !!(f && f.special);
+  const farms = () => [s, s.bfarm, s.xfarm].filter(Boolean);
+  const allBirds = () => (s.bfarm || s.xfarm ? farms().flatMap(f => f.birds) : s.birds);
+  const totalBirds = () => farms().reduce((a, f) => a + f.birds.length, 0);
+  const viewFarm = () => (s.view === 1 && s.bfarm ? s.bfarm : s.view === 2 && s.xfarm ? s.xfarm : s);
+  // Per farm type: its name, icon and expansion ladder. tierOffset lines its buildings up with the kienyeji farm's.
+  const FT = {
+    k: { name: 'Kienyeji farm', icon: '🥚', caps: COOP_CAPS, costs: COOP_COSTS, build: 0, tierOffset: 0 },
+    b: { name: 'Broiler farm', icon: '🍗', caps: B_CAPS, costs: B_COSTS, build: BFARM_COST, tierOffset: 3 },
+    x: { name: 'Special birds farm', icon: '🦆', caps: X_CAPS, costs: X_COSTS, build: XFARM_COST, tierOffset: 3 },
+  };
+  const ftype = f => (isB(f) ? 'b' : isX(f) ? 'x' : 'k');
+  const farmName = f => FT[ftype(f)].name;
+  // Names the farm in messages, but only once there are two.
+  const where = () => (farms().length > 1 ? ` on the ${farmName(F).toLowerCase()}` : '');
+  function inFarm(f, fn) { const was = F; F = f; try { return fn(); } finally { F = was; } }
+  function forFarms(fn) { for (const f of farms()) inFarm(f, () => fn(f)); }
+  const farmCap = f => FT[ftype(f)].caps[f.coop];
+  const tierCosts = f => FT[ftype(f)].costs;
+  const cap = () => farmCap(F);
+  // Where new chicks of a kind go: broilers live on their own farm once it exists.
+  const homeFarm = kind => (SPECIES[kind] ? s.xfarm : kind === 'b' && s.bfarm ? s.bfarm : s);
+  // Every extra 400 birds of housing brings its own feed and water lines.
+  const lines = () => Math.max(1, cap() / 400);
+  const feederCap = () => (F.upg.trough ? 80 : F.upg.tube ? 25 : 6) * lines();
+  const drinkCap = () => 10 * lines();
+  const vaccinated = b => b.vaccUntil >= dayOf(s.T);
+  const ev = id => !!s.event && s.event.id === id;
+  const festive = () => ev('festive');
+  const bagPrice = () => Math.round(s.prices.bag * (s.upg.mill ? 0.75 : 1) * (ev('shortage') && !s.upg.contract ? 1.4 : 1));
+  // Cheap imported eggs flood the market now and then; a big rival also keeps prices down.
+  const eggEach = () => s.prices.tray / 30 * (s.upg.grading ? 1.2 : 1) * (festive() ? 1.1 : 1) * (ev('glut') ? 0.65 : 1) * (s.rival ? 1 - s.rival.share * 0.25 : 1);
+  const broilerEach = () => s.prices.broiler * (s.upg.slaughter ? 1.3 : 1) * (festive() ? 1.4 : 1);
+  const henEach = () => PRICE.hen * (festive() ? 1.3 : 1);
+  const spentEach = () => s.prices.spent * (festive() ? 1.3 : 1);
+  // Broiler farms restock a whole batch at once, so they start at 50 chicks a click.
+  function chickBatch(f = F) { const c = farmCap(f); return c >= 2500 ? 250 : c >= 1000 ? 100 : c >= 400 || f !== s ? 50 : 10; }
+  // A 1,200-hen farm eats ~130 kg a day; two 5,000-bird farms eat well over a tonne.
+  function feedBags() { const c = farms().reduce((a, f) => a + farmCap(f), 0); return c >= 2500 ? 20 : c >= 700 ? 5 : 1; }
+  const orderSlots = () => 2 + (s.coop >= 2 ? 1 : 0) + (s.upg.truck ? 1 : 0) + (s.upg.mpesa ? 1 : 0);
+  // KES 300 of shavings does one small coop; a big farm needs proportionally more.
+  const cleanCost = () => Math.max(PRICE.clean, Math.round(F.birds.length * 3 / 50) * 50);
+  const treatCost = () => Math.max(PRICE.treat, Math.round(F.birds.filter(b => b.sick === 'cocci').length * 6 / 50) * 50);
+  const netWorth = () => s.cash - (s.loan ? s.loan.owed : 0);
+  const autoWater = () => !!F.upg.auto && !F.dryTank;
+  const festiveName = d => (Math.floor((d - FESTIVE_FIRST) / FESTIVE_EVERY) % 2 ? 'Easter' : 'Christmas');
+  const isFestiveStart = d => d >= FESTIVE_FIRST && (d - FESTIVE_FIRST) % FESTIVE_EVERY === 0;
+  function layFactor(age) {
+    if (age <= 50) return 1;
+    if (age <= SPENT_AGE) return 1 - (age - 50) / (SPENT_AGE - 50) * 0.55;
+    return Math.max(0.25, 0.45 - (age - SPENT_AGE) * 0.01);
+  }
+  const stars = r => '★'.repeat(Math.round(r)) + '☆'.repeat(5 - Math.round(r));
+
+  function stage(b) {
+    if (b.kind === 'b') return b.age < 3 ? 'chick' : 'broiler';
+    if (SPECIES[b.kind]) return b.age < 3 ? 'chick' : 'grower';
+    return b.age < 4 ? 'chick' : b.age < 6 ? 'pullet' : 'hen';
+  }
+  // Broilers on their own farm get broiler feed and no competition, so they finish a day sooner.
+  const ready = b => b.kind === 'b' && b.age >= (b.bf ? 5 : 6);
+  const spent = b => b.kind === 'k' && b.age >= SPENT_AGE;
+  const sp = b => SPECIES[b.kind];
+  const feedOf = b => (sp(b) ? sp(b).feed * (b.age < 3 ? 0.4 : 1) : FEED[stage(b)]);
+  const spReady = b => !!sp(b) && b.age >= sp(b).ready;
+  // Christmas is turkey season; any festive season lifts special-bird prices.
+  const spEach = kind => SPECIES[kind].meat * s.prices.sp * (festive() ? (kind === 't' && s.event.name === 'Christmas' ? SPECIES.t.xmas : 1.3) : 1);
+  const spentHens = () => s.birds.filter(spent);   // hens only ever live on the kienyeji farm
+
+  function makeBird(kind, age) {
+    const b = { id: s.nextId++, kind, age, health: 100, vaccUntil: 0, sick: null, layAt: -1,
+      x: YARD.x0 + 40 + Math.random() * (YARD.x1 - YARD.x0 - 80), y: YARD.y0 + Math.random() * (YARD.y1 - YARD.y0),
+      tx: 0, ty: 0, face: Math.random() < 0.5 ? -1 : 1, phase: Math.random() * 6, wait: Math.random() * 2, inside: false, moving: false };
+    b.tx = b.x; b.ty = b.y;
+    return b;
+  }
+  // Past DRAW_MAX, show an even sample by id: every kind of bird stays represented and the same birds stay on screen.
+  function visibleBirds() {
+    const out = F.birds.filter(b => !b.inside);
+    if (out.length <= DRAW_MAX) return out;
+    const k = Math.ceil(out.length / DRAW_MAX);
+    return out.filter(b => b.id % k === 0).slice(0, DRAW_MAX);
+  }
+  function addBird(kind, age) { const b = makeBird(kind, age); if (isB(F)) b.bf = true; F.birds.push(b); s.seen[kind] = 1; return b; }
+  function newFarm(type = 'b') {
+    const f = { coop: 0, birds: [], feeder: 6, drinker: 10, fed: 85, water: 85, clean: 100, door: true,
+      nestEggs: 0, yardEggs: [], outbreak: 0, dryTank: false, upg: {} };
+    if (type === 'b') f.broiler = true; else f.special = true;
+    return f;
+  }
+
+  function freshState() {
+    s = {
+      v: 1, T: 6, cash: 6000, feedStore: 25, feeder: 4, drinker: 7, fed: 85, water: 85, clean: 85,
+      eggs: 0, nestEggs: 0, yardEggs: [], door: true, upg: {}, coop: 0, outbreak: 0, hatch: null,
+      prices: { tray: 690, bag: 3900, broiler: 520, spent: 600, qegg: 11, sp: 1, doc: 70 }, prev: { tray: 690, bag: 3900, broiler: 520, spent: 600, qegg: 11, sp: 1, doc: 70 },
+      stats: { laid: 0, collected: 0, sold: 0, lost: 0, deaths: 0, hawks: 0, broilersSold: 0, earned: 0, orders: 0, manure: 0, culled: 0, loansRepaid: 0, broken: 0, stolen: 0, taxPaid: 0,
+        contracts: 0, contractsFailed: 0, loads: 0, badDebt: 0, collectedRx: 0, hired: 0, trained: 0,
+        spSold: {}, xmasTurkeys: 0, qSold: 0, qLaid: 0, docSold: 0, feedSold: 0, plates: 0 },
+      flu: 0, rival: null, taxOwed: 0, staff: [], contracts: [], offers: [], receivables: [],
+      goals: {}, won: false, tycoon: false, over: false, birds: [], nextId: 1, log: [],
+      orders: [], rep: 3, rain: 0,
+      feat: FEAT, loan: null, event: null, dryTank: false, hist: [],
+      bfarm: null, xfarm: null, view: 0, qeggs: 0, hatchOn: true, feedSold: 0,
+      ach: {}, rank: 'Mkulima', streak: { clean: 0, rep5: 0, noTheft: 0 }, seen: {}, fluHit: false,
+    };
+    F = s;
+    s.today = blankDay(s);
+    for (let i = 0; i < 6; i++) addBird('k', 8 + i);
+    for (let i = 0; i < 4; i++) addBird('k', 1);
+    scheduleLaying();
+    return s;
+  }
+
+  // ---------- farm records ----------
+  // Eggs and deaths are counted as the change in the running stats since the day began.
+  function blankDay(st) {
+    const costs = {};
+    for (const k of COST_KINDS) costs[k] = 0;
+    return { income: 0, costs, capex: 0, laid: st.stats.laid, deaths: st.stats.deaths, insured: 0, badDeaths: 0, stolen: st.stats.stolen || 0 };
+  }
+  function closeDay(d) {
+    const t = s.today;
+    const rec = { d, income: t.income, costs: t.costs, capex: t.capex, laid: s.stats.laid - t.laid, deaths: s.stats.deaths - t.deaths,
+      insured: t.insured, hens: s.birds.filter(b => stage(b) === 'hen').length, birds: totalBirds(),
+      badDeaths: t.badDeaths || 0, stolen: (s.stats.stolen || 0) - (t.stolen || 0) };
+    // Streaks for the long achievements.
+    const st = s.streak;
+    st.clean = rec.badDeaths === 0 && rec.stolen === 0 && totalBirds() > 0 ? st.clean + 1 : 0;
+    st.rep5 = s.rep >= 5 ? st.rep5 + 1 : 0;
+    st.noTheft = totalBirds() >= 1000 && rec.stolen === 0 ? st.noTheft + 1 : 0;
+    s.stats.bestDay = Math.max(s.stats.bestDay || 0, rec.income);
+    s.hist.push(rec);
+    if (s.hist.length > 30) s.hist.splice(0, s.hist.length - 30);
+    s.today = blankDay(s);
+    return rec;
+  }
+  const running = r => COST_KINDS.reduce((a, k) => a + (r.costs[k] || 0), 0);
+  function spend(n, kind) {
+    s.cash -= n;
+    if (kind === 'capex') s.today.capex += n; else s.today.costs[kind] += n;
+  }
+
+  // ---------- messages ----------
+  let quiet = 0;   // >0 while staff run many actions: their own summary note replaces the chatter
+  function note(msg, kind = 'info') {
+    if (quiet) return;
+    s.log.unshift({ d: dayOf(s.T), h: hourOf(s.T), msg, kind });
+    if (s.log.length > 40) s.log.length = 40;
+    toast(msg, kind);
+  }
+  function toast(msg, kind) {
+    const box = $('toasts');
+    if (!box || !box.appendChild) return;
+    const el = document.createElement('div');
+    el.className = 'toast ' + kind;
+    el.textContent = msg;
+    box.appendChild(el);
+    while (box.children && box.children.length > 3) box.removeChild(box.firstChild);
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 5000);
+  }
+  function float(x, y, text, color = '#fff') { floats.push({ x, y, text, color, life: 1.3 }); }
+
+  function sfx(kind) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (muted || !AC) return;
+    try {
+      sfx.ctx = sfx.ctx || new AC();
+      const a = sfx.ctx, o = a.createOscillator(), g = a.createGain(), t = a.currentTime;
+      const f = { egg: 880, coin: 1250, bad: 170, shoo: 330, cluck: 560, click: 640 }[kind] || 440;
+      o.type = kind === 'bad' ? 'sawtooth' : 'triangle';
+      o.frequency.setValueAtTime(f, t);
+      o.frequency.exponentialRampToValueAtTime(f * (kind === 'bad' ? 0.5 : 1.5), t + 0.12);
+      g.gain.setValueAtTime(0.07, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+      o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + 0.22);
+    } catch (e) { console.warn('Sound unavailable', e); muted = true; }
+  }
+
+  // ---------- simulation ----------
+  // Chance a hen on the current farm lays tomorrow. Layers kept apart from broilers get the feeders to themselves.
+  function layChance(b, noBroilers = !F.birds.some(x => x.kind === 'b')) {
+    // Improved kienyeji lay less than commercial hybrids: about 7 eggs a week at best.
+    let p = 0.72 * clamp(Math.min(F.fed, F.water) / 80, 0, 1) * (b.health / 100);
+    if (F.upg.solar) p *= 1.12;
+    if (noBroilers) p *= 1.05;
+    p *= layFactor(b.age);
+    if (b.sick === 'nd') p = 0; else if (b.sick === 'cocci') p *= 0.3;
+    return p;
+  }
+  function scheduleLaying() {
+    forFarms(() => {
+      const noB = !F.birds.some(x => x.kind === 'b');
+      for (const b of F.birds) {
+        b.layAt = -1;
+        if (stage(b) !== 'hen') continue;
+        if (rng() < Math.min(0.97, layChance(b, noB))) b.layAt = 7 + rng() * 6;
+      }
+    });
+  }
+
+  function lay(b) {
+    b.layAt = -1;
+    s.stats.laid++;
+    if (b.inside || !F.door || rng() < 0.65 || F.yardEggs.length >= 40) F.nestEggs++;
+    else F.yardEggs.push({ x: clamp(b.x - b.face * 10, YARD.x0, YARD.x1), y: clamp(b.y + 2, YARD.y0, YARD.y1), p: Math.random() * 6 });
+  }
+
+  function killBird(b, cause, silent) {
+    const i = F.birds.indexOf(b);
+    if (i < 0) return;
+    F.birds.splice(i, 1);
+    s.stats.deaths++;
+    // Insurers don't pay for birds you let starve.
+    if (s.upg.insure && cause !== 'hunger' && cause !== 'thirst' && cause !== 'natural causes') s.today.insured++;
+    if (cause !== 'natural causes') s.today.badDeaths++;
+    if (!silent) { const key = cause + '|' + where(); pendingDeaths[key] = (pendingDeaths[key] || 0) + 1; }
+  }
+
+  function continuous(dh) {
+    const h = hourOf(s.T), day = isDayH(h), dd = dh / 24, n = F.birds.length;
+    for (const b of F.birds) b.age += s.upg.brooder && stage(b) === 'chick' ? dd * 1.25 : dd;
+    F.clean = Math.max(0, F.clean - (3 + 12 * n / cap()) * (s.rain ? 2 : 1) * dd);
+    if (n) {
+      // Ducks splash and drink about three times what other birds do.
+      let feedDay = 0, waterDay = 0;
+      for (const b of F.birds) { const f = feedOf(b); feedDay += f; waterDay += f * (sp(b) && sp(b).drink || 1); }
+      if (day) {
+        // Birds eat and drink across the 12.5 daylight hours.
+        const need = feedDay * dh / 12.5;
+        if (F.feeder > 0) { F.feeder = Math.max(0, F.feeder - need); F.fed = Math.min(100, F.fed + 150 * dd); }
+        else F.fed = Math.max(0, F.fed - 90 * dd);
+        // In a drought the birds drink twice as much in the heat.
+        const thirst = ev('drought') ? 2 : 1;
+        if (autoWater()) F.water = Math.min(100, F.water + 200 * dd);
+        else if (F.drinker > 0) { F.drinker = Math.max(0, F.drinker - waterDay * 2.2 * thirst * dh / 12.5); F.water = Math.min(100, F.water + 200 * dd); }
+        else F.water = Math.max(0, F.water - 140 * dd);
+      } else {
+        F.fed = Math.max(0, F.fed - 12 * dd);
+        F.water = Math.max(0, F.water - 18 * dd);
+      }
+    }
+    const dead = [];
+    for (const b of F.birds) {
+      let d = 0;
+      if (F.fed < 40) d -= (40 - F.fed) * 1.3;
+      if (F.water < 40) d -= (40 - F.water) * 2;
+      if (b.kind === 'b' && d < 0) d *= 1.5;   // broilers grow fast and crash fast
+      if (b.kind === 't' && b.age < 3 && d < 0) d *= 2;   // turkey poults are famously delicate
+      if (F.fed >= 50 && F.water >= 50 && !b.sick) d += 15;
+      if (b.sick === 'nd') d -= 38;
+      else if (b.sick === 'cocci') { d -= 14; if (rng() < 0.12 * dd) b.sick = null; }
+      b.health = Math.min(100, b.health + d * dd);
+      if (b.health <= 0) dead.push(b);
+    }
+    for (const b of dead) killBird(b, b.sick === 'nd' ? 'Newcastle disease (kideri)' : b.sick === 'cocci' ? 'coccidiosis' : F.water < 40 ? 'thirst' : 'hunger');
+    if (day) for (const b of F.birds.slice()) if (b.layAt >= 0 && h >= b.layAt) lay(b);
+    // Hawks only come over the farm you are watching, so you always get the chance to chase them.
+    if (day && !hawk && F === viewFarm() && h < 17.5 && rng() < 0.06 * dh) spawnHawk();
+  }
+
+  function walkPrices() {
+    const p = s.prices;
+    s.prev = { tray: p.tray, bag: p.bag, broiler: p.broiler, spent: p.spent, qegg: p.qegg, sp: p.sp, doc: p.doc };
+    // Quail eggs swing wildly: the market boomed and crashed once already.
+    p.qegg = clamp(Math.round((p.qegg + (rng() - 0.5) * 3) * 10) / 10, 5, 18);
+    if (rng() < 0.015) { p.qegg = 5; note('The quail egg market has crashed again: traders are paying only KES 5 an egg.', 'bad'); }
+    p.sp = clamp(Math.round((p.sp + (rng() - 0.5) * 0.08) * 100) / 100, 0.85, 1.15);
+    p.doc = clamp(Math.round(p.doc + (rng() - 0.5) * 6), 55, 85);
+    p.tray = clamp(Math.round(p.tray + (rng() - 0.5) * 70), 570, 810);
+    p.bag = clamp(Math.round((p.bag + (rng() - 0.5) * 220) / 10) * 10, 3500, 4600);
+    p.broiler = clamp(Math.round(p.broiler + (rng() - 0.5) * 50), 430, 610);
+    p.spent = clamp(Math.round(p.spent + (rng() - 0.5) * 60), 500, 720);
+  }
+
+  function newDay() {
+    const d = dayOf(s.T);
+    const rec = closeDay(d - 1);
+    walkPrices();
+    forFarms(() => { if (!F.door) F.door = true; });
+    staffDay(d);
+    contractsDay(d);
+    receivablesDay(d);
+    quailDay();
+    s.feedSold = 0;
+    s.bizLast = { doc: hatcheryDay(d), plates: outletDay(d) };
+    if (s.hatch && d >= s.hatch.day) inFarm(s, () => {
+      const n = Math.min(Math.max(0, cap() - F.birds.length), s.hatch.n);
+      for (let i = 0; i < n; i++) { const b = addBird('k', 0); b.x = NEST.x + 20; b.y = YARD.y0 + 10; }
+      note(n ? `${n} chicks hatched in the incubator.` + (n < s.hatch.n ? ` ${s.hatch.n - n} did not fit in the coop.` : '') : 'Chicks hatched, but the coop was full, so you gave them to a neighbour.', 'good');
+      s.hatch = null;
+    });
+    // Each farm catches disease on its own: separate farms are separate biosecurity units.
+    forFarms(() => farmDisease(d));
+    forFarms(naturalLosses);
+    fluDay(d);
+    vetRounds();
+    if (s.rain > 0) {
+      s.rain--;
+      if (!s.rain) note('The rains have eased. The litter stays clean for longer again.', 'good');
+    } else if (d >= 5 && !ev('drought') && rng() < 0.05) {
+      s.rain = 4;
+      note('The long rains have come. Wet litter gets dirty twice as fast, so clean the coop often to stop coccidiosis.', 'warn');
+    }
+    eventsDay(d);
+    forFarms(waterDay);
+    spend(Math.min(s.cash, upkeepToday()), 'upkeep');
+    taxDay(d);
+    rivalDay(d);
+    insuranceDay(rec);
+    loanDay();
+    dailyOrders(d);
+    scheduleLaying();
+    checkGoals();
+    save();
+  }
+
+  function farmDisease(d) {
+    const unv = F.birds.filter(b => !vaccinated(b) && !b.sick);
+    if (F.outbreak > 0) {
+      F.outbreak--;
+      let k = 0;
+      for (const b of unv) if (rng() < 0.5) { b.sick = 'nd'; k++; }
+      if (k) note(`Newcastle is still spreading${where()}: ${k} more unvaccinated birds are sick.`, 'bad');
+      if (!F.outbreak) note(`The Newcastle outbreak${where()} has passed.`, 'good');
+    } else if (d >= 4 && F.birds.length && rng() < 0.045 * (F.upg.biosec ? 0.5 : 1)) {
+      F.outbreak = 3;
+      let k = 0;
+      for (const b of unv) if (rng() < 0.7) { b.sick = 'nd'; k++; }
+      if (k) { note(`Newcastle disease (kideri) outbreak${where()}! ${k} unvaccinated birds are sick. There is no cure, so vaccinate the rest now.`, 'bad'); sfx('bad'); }
+      else note(`Newcastle disease has been reported near Meru. Your vaccinated flock${where()} is safe.`, 'good');
+    }
+    if (F.clean < 45 && rng() < (45 - F.clean) / 100 * (F.upg.biosec ? 0.5 : 1)) {
+      let k = 0;
+      for (const b of F.birds) if (!b.sick && rng() < 0.4) { b.sick = 'cocci'; k++; }
+      if (k) { note(`Coccidiosis from dirty litter${where()}: ${k} birds are sick. Treat them with amprolium and clean the coop.`, 'bad'); sfx('bad'); }
+    }
+  }
+
+  // A few birds die every day on any real farm, even a well-run one (about 0.08% a day).
+  function naturalLosses() {
+    for (const b of F.birds.slice()) if (rng() < 0.0008) killBird(b, 'natural causes');
+  }
+
+  // Power and water for every bird, plus maintenance on the houses you have built.
+  function invested(f) {
+    const costs = tierCosts(f);
+    let v = FT[ftype(f)].build;
+    for (let i = 0; i < f.coop; i++) v += costs[i];
+    return v;
+  }
+  function upkeepToday() {
+    let n = 0, inv = 0;
+    for (const f of farms()) { n += f.birds.length; inv += invested(f); }
+    return Math.round(n * POWER_EACH * (s.upg.biogas ? 0.4 : 1) + inv * UPKEEP_RATE);
+  }
+
+  // KRA turnover tax every 30 days on the last 30 days of sales, once the farm has earned KES 1M in total.
+  // The county business permit falls due every 60 days for farms of 200+ birds.
+  function taxDay(d) {
+    if (s.taxOwed > 0) {
+      const due = Math.round(s.taxOwed * 1.01);   // 1% a day on arrears
+      const paid = Math.min(Math.floor(s.cash), due);
+      spend(paid, 'tax'); s.stats.taxPaid += paid; s.taxOwed = due - paid;
+      if (!s.taxOwed) note('You cleared your tax arrears with KRA.', 'good');
+    }
+    const bill = (amt, what) => {
+      const paid = Math.min(Math.floor(s.cash), amt);
+      spend(paid, 'tax'); s.stats.taxPaid += paid;
+      if (paid < amt) { s.taxOwed += amt - paid; note(`You could not pay all of the ${what}. ${kes(amt - paid)} is now in arrears and grows 1% a day.`, 'bad'); }
+      else note(`Paid ${kes(amt)} ${what}.`, 'info');
+    };
+    if (d % 30 === 0 && s.stats.earned >= 1e6) {
+      const sales = s.hist.slice(-30).reduce((a, r) => a + r.income, 0);
+      if (sales > 0) bill(Math.round(sales * TOT_RATE), 'turnover tax to KRA (1.5% of the last 30 days of sales)');
+    }
+    if (d >= 30 && d % 60 === 30 && totalBirds() >= 200) bill(PERMIT_FEE, 'for the county single business permit');
+  }
+
+  // Bird flu scare: while it lasts, any farm can be ordered culled by the vet department, with low compensation.
+  function fluDay(d) {
+    if (s.flu > 0) {
+      forFarms(() => {
+        if (!F.birds.length || rng() >= 0.06 * (F.upg.biosec ? 0.15 : 1)) return;
+        const n = F.birds.length;
+        const value = F.birds.reduce((a, b) => a + (b.kind === 'b' ? broilerEach() : stage(b) === 'hen' ? henEach() : 150), 0);
+        const comp = Math.round(value * 0.3);
+        s.stats.deaths += n; s.today.badDeaths += n; s.fluHit = true;
+        F.birds.length = 0; F.nestEggs = 0; F.yardEggs = [];
+        earn(comp);
+        note(`Bird flu confirmed${where()}. The vet department culled all ${n} birds. Compensation was only ${kes(comp)}, about 30% of their value. Biosecurity cuts this risk.`, 'bad');
+        sfx('bad');
+      });
+      if (--s.flu === 0) {
+        if (!s.fluHit) s.stats.fluSurvived = (s.stats.fluSurvived || 0) + 1;
+        s.fluHit = false;
+        note('The bird flu scare is over. Movement controls are lifted.', 'good');
+      }
+    } else if (d >= 60 && rng() < 0.008) {
+      s.flu = 6;
+      note('Bird flu scare in the region! For 6 days any farm can be ordered culled. Farms with biosecurity are far safer.', 'bad');
+      sfx('bad');
+    }
+  }
+
+  // A big rival opens nearby once you are well known, and slowly takes buyers unless you keep delivering.
+  function rivalDay(d) {
+    if (!s.rival) {
+      if (totalBirds() >= 1500) { s.rival = { name: 'Kithoka Poultry Ltd', share: 0.1 }; note('A big rival, Kithoka Poultry Ltd, has opened near Meru. It will take buyers from you unless you deliver reliably.', 'warn'); }
+      return;
+    }
+    if (d % 7 === 0) s.rival.share = Math.min(0.4, s.rival.share + 0.02);
+  }
+
+  const EVENT_END = {
+    festive: 'The festive season is over. Prices are back to normal.',
+    drought: 'The drought has broken. The birds are drinking normally again.',
+    shortage: 'Feed is back in the shops. Bag prices are normal again.',
+    glut: 'The flood of cheap eggs has passed. Egg prices are recovering.',
+  };
+  function eventsDay(d) {
+    if (s.event && --s.event.left <= 0) { const id = s.event.id; s.event = null; note(EVENT_END[id], 'good'); }
+    if (isFestiveStart(d)) {
+      s.event = { id: 'festive', left: FESTIVE_LEN, name: festiveName(d) };
+      note(`${s.event.name} season! For ${FESTIVE_LEN} days broilers sell for 40% more, hens for 30% more and eggs for 10% more, and buyers call more often.`, 'good');
+    } else if (isFestiveStart(d + 3)) {
+      note(`${festiveName(d + 3)} is 3 days away. Broiler prices jump 40% for ${FESTIVE_LEN} days, so have birds ready.`, 'warn');
+    } else if (!s.event && !s.rain && d >= 8 && rng() < 0.03) {
+      s.event = { id: 'drought', left: 5 };
+      note(`A dry spell (drought) has hit Meru. Birds drink twice as much${farms().some(f => f.upg.auto) && !s.upg.tank ? ', and the nipple-drinker tank needs a paid water bowser each morning' : ''}.`, 'warn');
+    } else if (!s.event && d >= 20 && rng() < 0.02) {
+      s.event = { id: 'glut', left: 6 };
+      note('Cheap imported eggs are flooding Meru markets. Egg prices are down 35% for about 6 days. Hold eggs back or fill orders instead.', 'warn');
+    } else if (!s.event && d >= 12 && rng() < 0.025) {
+      s.event = { id: 'shortage', left: 4 };
+      note(s.upg.contract ? 'There is a feed shortage in Meru, but your miller contract keeps your price the same.' : 'Feed shortage! Bags cost 40% more for a few days. Use what is in your store.', 'warn');
+    }
+  }
+
+  // Nipple drinkers run off a tank; in a drought, without your own rainwater tank, it has to be filled by bowser.
+  function waterDay() {
+    F.dryTank = false;
+    if (!ev('drought') || !F.upg.auto || s.upg.tank || !F.birds.length) return;
+    const cost = F.birds.length;
+    if (s.cash >= cost) spend(cost, 'other');
+    else { F.dryTank = true; note(`You could not pay ${kes(cost)} for the water bowser, so the drinker tank${where()} is dry today. Fill the drinker by hand (W).`, 'bad'); }
+  }
+
+  function insuranceDay(rec) {
+    if (!s.upg.insure) return;
+    if (rec.insured) { earn(rec.insured * INSURE_PAYOUT); note(`The insurer paid ${kes(rec.insured * INSURE_PAYOUT)} for ${rec.insured} bird${rec.insured > 1 ? 's' : ''} lost yesterday.`, 'good'); }
+    const premium = totalBirds();
+    if (s.cash >= premium) spend(premium, 'other');
+    else { s.upg.insure = false; note('You missed the insurance premium, so the policy was cancelled.', 'bad'); }
+  }
+
+  function loanOffers() {
+    const d = dayOf(s.T);
+    return LOANS.map(l => {
+      const owed = Math.round(l.amt * (1 + l.rate));
+      return { ...l, owed, daily: Math.ceil(owed / l.days), ok: !s.loan && d >= (l.minDay || 0) && totalBirds() >= l.birds && s.rep >= l.rep };
+    });
+  }
+  function loanDay() {
+    const L = s.loan;
+    if (!L) return;
+    const due = Math.min(L.daily, L.owed);
+    if (s.cash >= due) {
+      spend(due, 'loan'); L.owed -= due; L.missed = 0;
+      if (L.owed <= 0) { s.loan = null; s.stats.loansRepaid++; note(`You paid off the ${L.name}. ${L.who[0].toUpperCase() + L.who.slice(1)} will lend to you again.`, 'good'); }
+      return;
+    }
+    L.missed++;
+    L.owed += Math.round(L.daily * 0.1);
+    s.rep = Math.max(0, s.rep - 0.25);
+    if (L.missed < 3) { note(`You missed a ${L.name} instalment of ${kes(due)}. A 10% penalty was added, and word gets around. ${3 - L.missed} more and they take birds.`, 'bad'); sfx('bad'); return; }
+    repossess(L);
+  }
+  // Three missed instalments in a row: the lender takes the most valuable birds to cover what is owed.
+  function repossess(L) {
+    const value = b => (ready(b) ? broilerEach() : spReady(b) ? spEach(b.kind) : stage(b) === 'hen' ? (spent(b) ? spentEach() : henEach()) : 150);
+    const list = farms().flatMap(f => f.birds.map(b => [b, f])).sort((a, b) => value(b[0]) - value(a[0]));
+    let got = 0, k = 0;
+    for (const [b, f] of list) {
+      if (got >= L.owed) break;
+      got += value(b); k++;
+      f.birds.splice(f.birds.indexOf(b), 1);
+    }
+    s.loan = null;
+    s.rep = Math.max(0, s.rep - 0.75);
+    note(`After three missed instalments, ${L.who} took ${k} birds worth ${kes(got)} to settle the ${L.name}.` + (got < L.owed ? ' The rest of the debt was written off, but your name has suffered.' : ''), 'bad');
+    sfx('bad');
+  }
+
+  function vetRounds() {
+    if (!s.upg.vet) return;
+    const fee = VET_FEE * farms().length;   // one visit per farm
+    if (s.cash < fee) { s.upg.vet = false; note('You could not pay the vet, so they stopped coming.', 'bad'); return; }
+    spend(fee, 'health');
+    forFarms(vetFarm);
+  }
+  function vetFarm() {
+    const unv = F.birds.filter(b => !vaccinated(b));
+    // Vaccinate as many as the cash allows; a partial round still protects part of the flock.
+    const n = Math.min(unv.length, Math.floor(s.cash / PRICE.vacc));
+    for (let i = 0; i < n; i++) unv[i].vaccUntil = dayOf(s.T) + 30;
+    spend(n * PRICE.vacc, 'health');
+    const sick = F.birds.filter(b => b.sick === 'cocci');
+    let treated = false;
+    const tc = treatCost();
+    if (sick.length && s.cash >= tc) { spend(tc, 'health'); for (const b of sick) b.sick = null; treated = true; }
+    if (n || treated) note(`The vet${where()} ${n ? `vaccinated ${n} birds` : ''}${n && treated ? ' and ' : ''}${treated ? `treated ${sick.length} for coccidiosis` : ''}.`, 'good');
+    if (n < unv.length) note(`The vet ran out of your cash after ${n} of ${unv.length} vaccinations.`, 'warn');
+  }
+
+  function newOrder() {
+    const pool = CUSTOMERS.filter(c => !c.truck || s.upg.truck);
+    const c = pool[Math.floor(rng() * pool.length)];
+    // Sized to the flock you actually have, not the coop, so a half-empty new house doesn't bring impossible orders.
+    const big = s.upg.truck ? 1.5 : 1, room = Math.max(30, totalBirds());
+    let qty;
+    if (c.item === 'eggs') qty = 30 * Math.max(1, Math.round((1 + rng() * room / 25) * big));
+    else if (c.item === 'broilers') qty = Math.max(5, Math.round((5 + rng() * room / 6) * big / 5) * 5);
+    else qty = Math.max(2, Math.round((2 + rng() * room / 20) * big));
+    // Buyers pay above market; a good reputation and the truck push that up.
+    const mult = 1.25 + rng() * 0.3 + (s.rep - 3) * 0.05 + (s.upg.truck ? 0.1 : 0) - (s.rival ? s.rival.share * 0.5 : 0);
+    const base = c.item === 'eggs' ? eggEach() : c.item === 'broilers' ? broilerEach() : henEach();
+    return { id: s.nextId++, who: c.who, item: c.item, qty, pay: Math.round(qty * base * mult), due: dayOf(s.T) + 2 + Math.floor(rng() * 3) };
+  }
+
+  function dailyOrders(d) {
+    for (const o of s.orders.filter(x => x.due < d)) {
+      s.orders.splice(s.orders.indexOf(o), 1);
+      s.rep = Math.max(0, s.rep - 1);
+      if (s.rival) s.rival.share = Math.min(0.4, s.rival.share + 0.03);
+      note(`${o.who} gave up waiting for ${o.qty} ${o.item}${s.rival ? ` and went to ${s.rival.name}` : ''}. Your reputation dropped.`, 'bad');
+    }
+    // A poor reputation means fewer buyers call.
+    const chance = (s.rep < 1 ? 0.2 : Math.min(0.95, (s.upg.mpesa ? 0.8 : 0.6) + (festive() ? 0.2 : 0))) * (s.rival ? 1 - s.rival.share : 1);
+    if (d >= 2 && s.orders.length < orderSlots() && rng() < chance) {
+      const o = newOrder();
+      s.orders.push(o);
+      note(`New order: ${o.who} wants ${o.qty} ${o.item} by day ${o.due} for ${kes(o.pay)}.`);
+    }
+  }
+
+  function takeReady(qty) {
+    // Healthiest broilers go to customers first.
+    const list = farms().flatMap(f => f.birds.filter(ready).map(b => [b, f])).sort((a, b) => b[0].health - a[0].health).slice(0, qty);
+    for (const [b, f] of list) f.birds.splice(f.birds.indexOf(b), 1);
+    return list.length;
+  }
+
+  // ---------- staff ----------
+  const farmIdx = f => (f === s ? 0 : isB(f) ? 1 : 2);
+  const farmAt = i => (i === 0 ? s : i === 1 ? s.bfarm : s.xfarm);
+  const staffOn = (role, f) => s.staff.filter(w => w.role === role && (f === undefined || w.farm === farmIdx(f)));
+  const hasStaff = (role, f) => staffOn(role, f).length > 0;
+  const wageOf = w => ROLES[w.role].wage * (1 + 0.3 * (w.skill - 1)) * STATUTORY;
+  const weeklyWages = () => s.staff.reduce((a, w) => a + wageOf(w), 0) * 7;
+  const trainCost = w => 5000 * w.skill;
+  // Unhappy workers do less.
+  const effort = w => (w.morale < 30 ? 0.6 : 1);
+  // Share of a farm's birds its farmhands can look after (1 = all of them).
+  function handCover(f) {
+    const n = f.birds.length;
+    if (!n) return 1;
+    return Math.min(1, staffOn('hand', f).reduce((a, w) => a + 600 * w.skill * effort(w), 0) / n);
+  }
+  function hire(role, f) {
+    const r = ROLES[role];
+    if (!r || s.staff.length >= MAX_STAFF) return null;
+    if (r.need && !s.upg[r.need]) return null;
+    if (r.max && staffOn(role).length >= r.max) return null;
+    const used = new Set(s.staff.map(w => w.name));
+    const free = NAMES.filter(n => !used.has(n));
+    const name = free.length ? free[Math.floor(rng() * free.length)] : NAMES[Math.floor(rng() * NAMES.length)] + ' ' + (s.staff.length + 1);
+    const w = { id: s.nextId++, role, name, farm: r.farm ? farmIdx(f || F) : null, skill: 1, morale: 70, owed: 0 };
+    s.staff.push(w);
+    s.stats.hired = (s.stats.hired || 0) + 1;
+    return w;
+  }
+  function leave(w, why) {
+    s.staff.splice(s.staff.indexOf(w), 1);
+    note(`${w.name} (${ROLES[w.role].name.toLowerCase()}) quit: ${why}.`, 'bad');
+    if (w.owed > 0) s.rep = Math.max(0, s.rep - 0.25);   // an unpaid worker talks
+  }
+  function staffDay(d) {
+    for (const w of s.staff) w.owed += wageOf(w);
+    if (d % 7 === 0 && s.staff.length) {
+      const total = s.staff.reduce((a, w) => a + w.owed, 0);
+      if (s.cash >= total) {
+        spend(total, 'labour');
+        for (const w of s.staff) { w.owed = 0; w.morale = Math.min(100, w.morale + 3); }
+      } else {
+        for (const w of s.staff) w.morale -= 25;
+        note(`Payday, but you could not pay ${kes(total)} in wages. Your workers are angry.`, 'bad');
+        sfx('bad');
+      }
+    }
+    for (const w of s.staff.slice()) {
+      const f = w.farm === null ? null : farmAt(w.farm);
+      if (w.farm !== null && !f) { s.staff.splice(s.staff.indexOf(w), 1); continue; }
+      // Too many birds per farmhand wears people out.
+      if (w.role === 'hand' && handCover(f) < 1) w.morale -= 3;
+      else if (w.morale < 70 && w.owed <= wageOf(w) * 7) w.morale += 1;
+      w.morale = clamp(w.morale, 0, 100);
+      if (w.morale < 30 && rng() < 0.15) { leave(w, w.owed > 0 ? 'unpaid wages' : 'overworked and unhappy'); continue; }
+      if (w.morale < 45 && rng() < 0.1) {
+        if (w.role === 'manager') {
+          const k = Math.min(Math.round(s.cash * 0.02), 20000);
+          if (k > 0) { s.cash -= k; note(`About ${kes(k)} is missing from the farm accounts. Low morale on the farm?`, 'bad'); }
+        } else if (s.eggs > 30) {
+          const k = Math.round(s.eggs * 0.03);
+          s.eggs -= k; s.stats.stolen += k;
+          note(`${k} eggs went missing from the store. Unhappy workers sometimes help themselves.`, 'bad');
+        }
+      }
+    }
+  }
+
+  function farmhandChores() {
+    const hands = staffOn('hand', F);
+    if (!hands.length) return;
+    const cover = handCover(F);
+    const amt = Math.min(feederCap() - F.feeder, s.feedStore) * cover;
+    if (amt > 0) { F.feeder += amt; s.feedStore -= amt; }
+    if (!autoWater()) F.drinker = Math.max(F.drinker, drinkCap() * cover);
+    if (F.nestEggs) collectNest(0.02, cover);
+    if (s.feedStore < 1 && F.birds.length) note(`${hands[0].name} says the feed store is empty${where()}. Buy feed!`, 'warn');
+  }
+  function collectorRounds() {
+    const cs = staffOn('collect', F);
+    if (!cs.length) return;
+    const hens = F.birds.filter(b => stage(b) === 'hen').length || 1;
+    const cover = Math.min(1, cs.reduce((a, w) => a + 1500 * w.skill * effort(w), 0) / hens);
+    if (F.nestEggs) collectNest(0.01, cover);
+    const k = Math.round(F.yardEggs.length * cover);
+    if (k) { F.yardEggs.splice(0, k); s.eggs += k; s.stats.collected += k; }
+  }
+  function watchmanDusk() {
+    const w = staffOn('watch', F)[0];
+    if (w && F.door && F.birds.length) { F.door = false; note(`${w.name} the night watchman shut the coop${where()}.`, 'good'); }
+  }
+  function driverRun() {
+    const dr = staffOn('driver')[0];
+    if (!dr) return;
+    let n = 0;
+    quiet++;
+    try {
+      for (const o of s.orders.slice()) { const before = s.orders.length; ACTIONS.deliver(o.id); if (s.orders.length < before) n++; }
+      n += supplyDue();
+    } finally { quiet--; }
+    if (n) note(`${dr.name} the driver made ${n} deliver${n > 1 ? 'ies' : 'y'}.`, 'good');
+  }
+  const reserveCash = () => 5000 + weeklyWages();
+  function feedNeedPerDay() {
+    let n = 0;
+    for (const f of farms()) for (const b of f.birds) n += feedOf(b);
+    return n;
+  }
+  function managerRun() {
+    const m = staffOn('manager')[0];
+    if (!m) return;
+    const sk = m.skill * effort(m), did = [];
+    quiet++;
+    try {
+      const target = feedNeedPerDay() * (sk >= 2 ? 5 : 3);
+      let bags = 0, guard = 0;
+      while (s.feedStore < target && s.cash > bagPrice() * feedBags() + reserveCash() && guard++ < 60) {
+        const f0 = s.feedStore; ACTIONS.buyFeed(); if (s.feedStore === f0) break; bags += Math.round((s.feedStore - f0) / 50);
+      }
+      if (bags) did.push(`bought ${bags} bags of feed`);
+      const keep = eggsReserved();
+      if (s.eggs > keep && (s.prices.tray >= (sk >= 3 ? 700 : 650) || s.eggs - keep > 3000)) { const n = s.eggs - keep; sellEggsN(n); did.push(`sold ${n} eggs`); }
+      const spare = allBirds().filter(ready).length - broilersReserved();
+      if (spare > 0) { sellReadyBroilers(spare); did.push(`sold ${spare} broilers`); }
+      if (sk >= 2) {
+        const sp = spentHens().length;
+        if (sp) { ACTIONS.cull(); did.push(`culled ${sp} spent hens`); }
+        let chicks = 0;
+        for (const kind of ['k', 'b']) {
+          const home = homeFarm(kind);
+          if (kind === 'b' && home === s && s.birds.some(b => b.kind === 'k') && !s.bfarm) continue;   // one-farm layers stay layers
+          for (let i = 0; i < 40; i++) {
+            const room = farmCap(home) - home.birds.length, n0 = home.birds.length;
+            if (room < chickBatch(home) / 2 || s.cash < reserveCash() + chickBatch(home) * 150) break;
+            buyChicks(kind);
+            if (home.birds.length === n0) break;
+            chicks += home.birds.length - n0;
+          }
+        }
+        if (chicks) did.push(`bought ${chicks} chicks`);
+      }
+    } finally { quiet--; }
+    if (did.length) note(`Manager ${m.name}: ${did.join(', ')}.`, 'good');
+  }
+  // ---------- supply contracts ----------
+  // Big buyers want steady loads and pay on credit. `risk` is the chance an invoice is never paid.
+  const CONTRACT_BUYERS = [
+    { who: 'A Nairobi supermarket chain', credit: 30, risk: 0.02 },
+    { who: 'Meru hospital kitchen', credit: 14, risk: 0.03 },
+    { who: 'A boarding school in Nkubu', credit: 21, risk: 0.04 },
+    { who: 'A tourist hotel in Nanyuki', credit: 14, risk: 0.06 },
+    { who: 'A Nairobi fast-food chain', credit: 30, risk: 0.03 },
+    { who: 'An egg trader from Isiolo', credit: 7, risk: 0.08 },
+  ];
+  const contractSlots = () => 1 + (s.upg.truck ? 1 : 0) + (hasStaff('driver') ? 1 : 0);
+  const contractNeed = item => s.contracts.filter(c => c.item === item && c.next <= dayOf(s.T) + 1).reduce((a, c) => a + c.qty, 0);
+  function makeOffer(item) {
+    const d = dayOf(s.T), b = CONTRACT_BUYERS[Math.floor(rng() * CONTRACT_BUYERS.length)];
+    const hens = s.birds.filter(x => stage(x) === 'hen').length;
+    let qty, every, left;
+    if (item === 'eggs') {
+      every = hens >= 100 ? 1 : 7;
+      qty = Math.max(30, Math.round(hens * 0.72 * every * (0.3 + rng() * 0.3) / 30) * 30);
+      left = every === 1 ? 20 + Math.floor(rng() * 21) : 6 + Math.floor(rng() * 5);
+    } else {
+      every = 7;
+      qty = Math.max(10, Math.round(farmCap(homeFarm('b')) * (0.15 + rng() * 0.2) / 10) * 10);
+      left = 6 + Math.floor(rng() * 5);
+    }
+    const unit = item === 'eggs' ? eggEach() : broilerEach();
+    const payEach = Math.round(qty * unit * (1.3 + rng() * 0.3 + (s.rep - 3) * 0.04));
+    return { id: s.nextId++, who: b.who, item, qty, every, left, total: left, payEach, credit: b.credit, risk: b.risk, next: d + (every === 1 ? 2 : 7), missed: 0 };
+  }
+  function contractsDay(d) {
+    for (const c of s.contracts.slice()) {
+      while (c.next < d && s.contracts.includes(c)) {
+        c.missed++; c.left--; c.next += c.every;
+        s.rep = Math.max(0, s.rep - 0.5);
+        if (s.rival) s.rival.share = Math.min(0.4, s.rival.share + 0.02);
+        const pen = Math.min(s.cash, Math.round(c.payEach * 0.5));
+        spend(pen, 'other');
+        if (c.missed >= 3) {
+          const more = Math.min(s.cash, c.payEach);
+          spend(more, 'other');
+          s.contracts.splice(s.contracts.indexOf(c), 1);
+          s.stats.contractsFailed = (s.stats.contractsFailed || 0) + 1;
+          s.rep = Math.max(0, s.rep - 1);
+          note(`${c.who} cancelled your contract after 3 missed loads and charged ${kes(pen + more)} in penalties.`, 'bad');
+        } else {
+          note(`You missed a contract load for ${c.who}: ${kes(pen)} penalty and your name suffers. ${3 - c.missed} more misses and they cancel.`, 'bad');
+          if (c.left <= 0) s.contracts.splice(s.contracts.indexOf(c), 1);
+        }
+      }
+    }
+    if (d >= 10 && d % 7 === 0) {
+      const hasB = s.bfarm || allBirds().some(b => b.kind === 'b');
+      s.offers = [makeOffer('eggs'), makeOffer(hasB && rng() < 0.6 ? 'broilers' : 'eggs')];
+      note(`${s.offers.length} new supply contracts are on offer this week. See the Contracts card.`);
+    }
+  }
+  // Invoices fall due: most are paid, some buyers stall, a few never pay.
+  function receivablesDay(d) {
+    let paid = 0, late = 0, bad = 0;
+    for (const r of s.receivables.slice()) {
+      if (r.due > d) continue;
+      if (!r.late && rng() < 0.15) { r.late = true; r.due = d + 3 + Math.floor(rng() * 8); late++; continue; }
+      s.receivables.splice(s.receivables.indexOf(r), 1);
+      if (rng() < r.risk) { s.stats.badDebt += r.amt; bad += r.amt; continue; }
+      earn(r.amt); s.stats.collectedRx += r.amt; paid += r.amt;
+    }
+    if (paid) note(`Buyers paid ${kes(paid)} of invoices.`, 'good');
+    if (late) note(`${late} invoice${late > 1 ? 's are' : ' is'} late. The buyers promise to pay next week.`, 'warn');
+    if (bad) note(`${kes(bad)} of invoices will never be paid: a buyer went bust or disappeared. That is the risk of selling on credit.`, 'bad');
+  }
+  // Delivers every load that is due and in stock. Returns how many went out.
+  function supplyDue() {
+    let n = 0;
+    for (const c of s.contracts.slice()) if (c.next <= dayOf(s.T) && supply(c)) n++;
+    return n;
+  }
+  function supply(c) {
+    const d = dayOf(s.T);
+    if (d < c.next) { note(`The next load for ${c.who} is due on day ${c.next}.`); return false; }
+    if (c.item === 'eggs') {
+      if (s.eggs < c.qty) { note(`You need ${c.qty} eggs for ${c.who}. You have ${s.eggs}.`, 'warn'); return false; }
+      s.eggs -= c.qty; s.stats.sold += c.qty;
+    } else {
+      if (allBirds().filter(ready).length < c.qty) { note(`You need ${c.qty} ready broilers for ${c.who}.`, 'warn'); return false; }
+      takeReady(c.qty); s.stats.broilersSold += c.qty;
+    }
+    s.receivables.push({ who: c.who, amt: c.payEach, due: d + c.credit, risk: c.risk, late: false });
+    c.left--; c.next += c.every;
+    s.stats.loads = (s.stats.loads || 0) + 1;
+    if (s.rival) s.rival.share = Math.max(0.02, s.rival.share - 0.005);
+    if (c.left <= 0) {
+      s.contracts.splice(s.contracts.indexOf(c), 1);
+      s.stats.contracts++;
+      s.rep = Math.min(5, s.rep + 1);
+      if (s.rival) s.rival.share = Math.max(0.02, s.rival.share - 0.03);
+      note(`Contract with ${c.who} completed! Your name grows among big buyers.`, 'good');
+    } else note(`Load delivered to ${c.who}. Invoice of ${kes(c.payEach)} due in ${c.credit} days.`);
+    return true;
+  }
+
+  // ---------- quail eggs and the side businesses ----------
+  function quailDay() {
+    if (!s.xfarm) return;
+    inFarm(s.xfarm, () => {
+      const fedK = clamp(Math.min(F.fed, F.water) / 80, 0, 1);
+      let k = 0;
+      for (const b of F.birds) if (b.kind === 'q' && b.age >= SPECIES.q.lay && !b.sick && rng() < 0.75 * fedK * b.health / 100) k++;
+      s.qeggs += k; s.stats.qLaid += k;
+    });
+  }
+  // The hatchery sells day-old chicks to neighbouring farmers; demand jumps in the week before a festive season.
+  function hatcheryDay(d) {
+    const a = staffOn('attend')[0];
+    if (!s.upg.hatchery || !s.hatchOn || !a) return 0;
+    const soon = [1, 2, 3, 4, 5, 6, 7].some(k => isFestiveStart(d + k));
+    const demand = Math.round(120 * a.skill * effort(a) * (0.5 + rng() * 0.7) * (soon ? 1.5 : 1));
+    const spare = Math.max(0, s.eggs - eggsReserved());
+    const used = Math.min(Math.ceil(demand / 0.75), spare);
+    const chicks = Math.min(demand, Math.floor(used * 0.75));
+    if (!chicks) return 0;
+    s.eggs -= used;
+    s.stats.docSold += chicks;
+    earn(chicks * s.prices.doc);
+    return chicks;
+  }
+  // The kuku choma outlet: busier at weekends and in festive seasons; plates come from ready broilers, then spent hens.
+  function outletDay(d) {
+    const cook = staffOn('cook')[0];
+    if (!s.upg.outlet || !cook) return 0;
+    const weekend = d % 7 === 6 || d % 7 === 0 ? 1.5 : 1;
+    const want = Math.round((25 + s.rep * 8) * weekend * (festive() ? 2 : 1) * (1 + 0.2 * (cook.skill - 1)) * effort(cook) * (s.rival ? 1 - s.rival.share : 1));
+    let plates = 0;
+    const broilers = farms().flatMap(f => f.birds.filter(ready).map(b => [b, f]));
+    const hens = spentHens().map(b => [b, s]);
+    for (const [b, f] of broilers.concat(hens)) {
+      if (plates >= want) break;
+      f.birds.splice(f.birds.indexOf(b), 1); plates++;
+    }
+    if (!plates) { note(`The kuku choma outlet had no birds to cook today. ${want} customers went elsewhere.`, 'bad'); return 0; }
+    const rev = plates * broilerEach() * 2.2;
+    earn(rev);
+    spend(Math.min(s.cash, plates * 150), 'other');   // charcoal, spices, chips
+    s.stats.plates += plates;
+    if (plates < want) note(`The outlet sold ${plates} plates for ${kes(rev)}, but ${want - plates} customers left hungry. Keep broilers ready.`, 'warn');
+    return plates;
+  }
+
+  // Stock that is promised to buyers is not sold at market.
+  function eggsReserved() { return s.orders.filter(o => o.item === 'eggs').reduce((a, o) => a + o.qty, 0) + contractNeed('eggs'); }
+  function broilersReserved() { return s.orders.filter(o => o.item === 'broilers').reduce((a, o) => a + o.qty, 0) + contractNeed('broilers'); }
+  function sellEggsN(n) {
+    n = Math.min(n, s.eggs);
+    if (n <= 0) return;
+    const v = n * eggEach();
+    s.eggs -= n; s.stats.sold += n; earn(v);
+  }
+  function sellReadyBroilers(n) {
+    const list = farms().flatMap(f => f.birds.filter(ready).map(b => [b, f])).sort((a, b) => a[0].health - b[0].health).slice(0, n);
+    for (const [b, f] of list) f.birds.splice(f.birds.indexOf(b), 1);
+    s.stats.broilersSold += list.length;
+    earn(list.reduce((sum, [b]) => sum + broilerEach() * (b.sick ? 0.6 : 1), 0));
+  }
+
+  // About 2% of eggs crack on the way from the nest box to the trays (1% with a collector).
+  function collectNest(rate = 0.02, share = 1) {
+    const n = Math.round(F.nestEggs * share), broken = Math.round(n * rate);
+    F.nestEggs -= n;
+    s.eggs += n - broken; s.stats.collected += n - broken; s.stats.broken += broken;
+    return n - broken;
+  }
+
+  function duskWarning() {
+    if (F.door && !F.upg.autodoor && F.birds.length) { note(`It is getting dark. Close the coop door${where()} (D) before predators come!`, 'warn'); sfx('cluck'); }
+  }
+
+  function dusk() {
+    const k = F.yardEggs.length;
+    if (k) { s.stats.lost += k; note(`${k} egg${k > 1 ? 's' : ''} left in the yard got eaten by rats. Collect yard eggs before dark.`, 'bad'); F.yardEggs = []; }
+    if (hawk) hawk.mode = 'leave';
+    if (F.upg.autodoor && F.door) { F.door = false; note(`The automatic door closed the coop${where()} for the night.`, 'good'); }
+    watchmanDusk();
+  }
+
+  // Thieves go for big farms whatever the door; a night watchman stops them, a dog halves the risk.
+  function theft() {
+    if (F.birds.length < 300 || hasStaff('watch', F)) return;
+    if (rng() >= 0.06 * (F.upg.dog ? 0.5 : 1)) return;
+    const k = Math.max(1, Math.round(F.birds.length * (0.005 + rng() * 0.01)));
+    const pool = F.birds.slice().sort((a, b) => (ready(b) || stage(b) === 'hen' ? 1 : 0) - (ready(a) || stage(a) === 'hen' ? 1 : 0));
+    for (const b of pool.slice(0, k)) F.birds.splice(F.birds.indexOf(b), 1);
+    s.stats.stolen += k;
+    note(`Thieves broke in${where()} during the night and took ${k} birds. A night watchman stops this.`, 'bad');
+    sfx('bad');
+  }
+
+  function nightRaid() {
+    if (!F.door || !F.birds.length) return;
+    const risk = F.upg.dog ? 0.15 : 0.65;
+    if (rng() < risk) {
+      const k = Math.min(F.birds.length, 1 + Math.floor(rng() * 3) + Math.floor(F.birds.length * 0.05));
+      const who = rng() < 0.5 ? 'A genet (nyegere)' : 'A mongoose';
+      for (let i = 0; i < k; i++) {
+        const chicks = F.birds.filter(b => stage(b) === 'chick');
+        const pool = chicks.length && rng() < 0.6 ? chicks : F.birds;
+        killBird(pool[Math.floor(rng() * pool.length)], 'predator', true);
+      }
+      note(`${who} got into the open coop${where()} and killed ${k} bird${k > 1 ? 's' : ''}. Close the door at dusk.`, 'bad');
+      sfx('bad');
+    } else if (F.upg.dog) note(`The guard dog barked all night and kept predators away from the open coop${where()}.`, 'good');
+    else note(`You left the coop${where()} open all night, but nothing came. You got lucky.`, 'warn');
+  }
+
+  function flushDeaths() {
+    for (const key in pendingDeaths) {
+      const k = pendingDeaths[key], [cause, at] = key.split('|');
+      note(`${k} bird${k > 1 ? 's' : ''}${at} died of ${cause}.`, 'bad');
+    }
+    pendingDeaths = {};
+  }
+
+  function simHours(total) {
+    while (total > 1e-9) {
+      const dh = Math.min(0.25, total);
+      total -= dh;
+      const p = s.T;
+      s.T += dh;
+      forFarms(() => continuous(dh));
+      if (crossed(p, s.T, 6)) newDay();
+      if (crossed(p, s.T, 7)) managerRun();
+      if (crossed(p, s.T, 8) || crossed(p, s.T, 12) || crossed(p, s.T, 17)) forFarms(farmhandChores);
+      if ([9, 11, 13, 15, 17].some(hh => crossed(p, s.T, hh))) forFarms(collectorRounds);
+      if (crossed(p, s.T, 10)) driverRun();
+      if (crossed(p, s.T, 18)) forFarms(duskWarning);
+      if (crossed(p, s.T, DUSK)) forFarms(dusk);
+      if (crossed(p, s.T, 22)) forFarms(nightRaid);
+      if (crossed(p, s.T, 2)) forFarms(theft);
+    }
+    flushDeaths();
+  }
+
+  // ---------- hawk ----------
+  function spawnHawk() {
+    const prey = F.birds.filter(b => !b.inside && (stage(b) === 'chick' || stage(b) === 'pullet'));
+    if (!prey.length) return;
+    const t = prey[Math.floor(rng() * prey.length)];
+    hawk = { x: -40, y: 170, t: 0, target: t.id, mode: 'circle', ang: Math.PI, flap: 0 };
+    note('A hawk (mwewe) is circling over your chicks! Tap or click it to chase it off.', 'warn');
+    sfx('bad');
+  }
+  function scareHawk(by) {
+    if (!hawk || hawk.mode === 'leave') return;
+    hawk.mode = 'leave';
+    s.stats.hawks++;
+    float(hawk.x, hawk.y - 20, by === 'guinea' ? 'Kek-kek-kek!' : by ? 'Woof!' : 'Shoo!', '#fff');
+    note(by === 'guinea' ? 'The guinea fowl raised a racket and the hawk gave up.' : by ? 'Simba barked and chased the hawk away.' : 'Shoo! You chased the hawk away.', 'good');
+    sfx('shoo');
+    checkGoals();
+  }
+  function updateHawk(dt) {
+    if (!hawk) return;
+    hawk.t += dt; hawk.flap += dt * 9;
+    const tgt = F.birds.find(b => b.id === hawk.target);
+    if (hawk.mode === 'circle') {
+      hawk.ang += dt * 1.5;
+      const cx = tgt ? tgt.x : W / 2;
+      const k = Math.min(1, dt * 2);
+      hawk.x += (cx + Math.cos(hawk.ang) * 120 - hawk.x) * k;
+      hawk.y += (210 + Math.sin(hawk.ang) * 45 - hawk.y) * k;
+      if (F.upg.dog && hawk.t > 2) return scareHawk(true);
+      // Guinea fowl are noisy sentries: grown ones mob a hawk before it can dive.
+      if (hawk.t > 3 && F.birds.some(b => b.kind === 'g' && b.age >= 3)) return scareHawk('guinea');
+      if (hawk.t > 7) hawk.mode = tgt && !tgt.inside ? 'dive' : 'leave';
+    } else if (hawk.mode === 'dive') {
+      if (!tgt || tgt.inside) { hawk.mode = 'leave'; return; }
+      const dx = tgt.x - hawk.x, dy = tgt.y - 12 - hawk.y, d = Math.hypot(dx, dy), v = 420 * dt;
+      if (d <= v + 4) {
+        killBird(tgt, 'hawk', true);
+        hawk.mode = 'leave'; hawk.carry = true;
+        note('The hawk snatched a chick. Chase hawks off quickly, or get a guard dog.', 'bad');
+        sfx('bad');
+      } else { hawk.x += dx / d * v; hawk.y += dy / d * v; }
+    } else {
+      hawk.x += 260 * dt; hawk.y -= 170 * dt;
+      if (hawk.y < -60 || hawk.x > W + 60) hawk = null;
+    }
+  }
+
+  // ---------- bird motion (cosmetic) ----------
+  function pickTarget(b) {
+    const r = Math.random();
+    if (r < 0.25 && F.feeder > 0) { b.tx = FEEDER.x + 10 + Math.random() * 50; b.ty = FEEDER.y + 58 + Math.random() * 16; }
+    else if (r < 0.4 && (F.upg.auto || F.drinker > 0)) { b.tx = DRINK.x + 10 + Math.random() * 50; b.ty = DRINK.y + 58 + Math.random() * 16; }
+    else { b.tx = YARD.x0 + Math.random() * (YARD.x1 - YARD.x0); b.ty = YARD.y0 + Math.random() * (YARD.y1 - YARD.y0); }
+  }
+  function moveBirds(dt) {
+    const shut = !isDayH(hourOf(s.T)) || !F.door;
+    for (const b of F.birds) {
+      b.phase += dt;
+      if (shut) {
+        if (b.inside) continue;
+        b.tx = DOOR_PT.x; b.ty = DOOR_PT.y;
+        stepToward(b, dt, 55);
+        if (Math.hypot(b.x - DOOR_PT.x, b.y - DOOR_PT.y) < 10) b.inside = true;
+        continue;
+      }
+      if (b.inside) {
+        if (Math.random() < dt * 2.5) { b.inside = false; b.x = DOOR_PT.x; b.y = DOOR_PT.y + 6; pickTarget(b); }
+        continue;
+      }
+      if (b.wait > 0) { b.wait -= dt; b.moving = false; continue; }
+      if (!stepToward(b, dt, stage(b) === 'chick' ? 34 : 26)) { b.wait = 0.6 + Math.random() * 2.6; pickTarget(b); }
+    }
+  }
+  function stepToward(b, dt, v) {
+    const dx = b.tx - b.x, dy = b.ty - b.y, d = Math.hypot(dx, dy);
+    if (d < 2) { b.moving = false; return false; }
+    const m = Math.min(d, v * dt);
+    b.x += dx / d * m; b.y += dy / d * m;
+    if (Math.abs(dx) > 1) b.face = dx > 0 ? 1 : -1;
+    b.moving = true;
+    return true;
+  }
+
+  function update(dt) {
+    const sdt = dt * speed;
+    for (const f of floats) { f.life -= dt; f.y -= 28 * dt; }
+    floats = floats.filter(f => f.life > 0);
+    if (!sdt || s.over) return;
+    const rate = isDayH(hourOf(s.T)) ? 12.5 / DAY_REAL : 11.5 / NIGHT_REAL;
+    simHours(sdt * rate);
+    moveBirds(sdt);
+    updateHawk(sdt);
+  }
+
+  // ---------- player actions ----------
+  function pay(cost, kind = 'other') {
+    if (s.cash < cost) { note(`Not enough cash. You need ${kes(cost)}.`, 'warn'); sfx('bad'); return false; }
+    spend(cost, kind); return true;
+  }
+  function earn(n) { s.cash += n; s.stats.earned += n; s.today.income += n; sfx('coin'); }
+
+  const ACTIONS = {
+    feeder() {
+      const amt = Math.min(feederCap() - F.feeder, s.feedStore);
+      if (s.feedStore <= 0.01) return note('The feed store is empty. Buy a bag of feed at the market.', 'warn');
+      if (amt <= 0.01) return note('The feeder is already full.');
+      F.feeder += amt; s.feedStore -= amt;
+      float(FEEDER.x + 35, FEEDER.y - 6, `+${kg(amt)} kg`, '#ffe08a'); sfx('click');
+    },
+    water() {
+      if (autoWater()) return note('The nipple drinkers fill themselves from the tank.');
+      F.drinker = drinkCap();
+      float(DRINK.x + 35, DRINK.y - 6, 'Full', '#9fd6ff'); sfx('click');
+    },
+    door() {
+      F.door = !F.door;
+      sfx('click');
+      if (!F.door && isDayH(hourOf(s.T)) && hourOf(s.T) < 17.5) note('The coop is shut, so the birds are inside. Hens will lay in the nest box.');
+    },
+    nest() {
+      if (!F.nestEggs) return note('There are no eggs in the nest box right now.');
+      const got = collectNest();
+      float(NEST.x + 32, NEST.y - 8, `+${got} 🥚`, '#fff8dc');
+      sfx('egg');
+    },
+    clean() {
+      if (F.clean > 95) return note('The litter is already clean.');
+      if (!pay(cleanCost(), 'health')) return;
+      F.clean = 100;
+      if (s.upg.manure && F.birds.length) {
+        const v = F.birds.length * MANURE_EACH * (s.upg.biogas ? 0.5 : 1);
+        earn(v); s.stats.manure += v;
+        note(`You put down fresh shavings and sold the old litter to shamba farmers as manure for ${kes(v)}.`, 'good');
+      } else note('You cleared the old litter and put down fresh wood shavings.', 'good');
+    },
+    vacc() {
+      const list = F.birds.filter(b => !vaccinated(b));
+      if (!list.length) return note('Every bird is already vaccinated.');
+      if (!pay(list.length * PRICE.vacc, 'health')) return;
+      for (const b of list) b.vaccUntil = dayOf(s.T) + 30;
+      const sick = list.filter(b => b.sick === 'nd').length;
+      note(`Vaccinated ${list.length} birds against Newcastle (protects for 30 days).` + (sick ? ` The ${sick} already sick won't be cured.` : ''), 'good');
+    },
+    treat() {
+      const list = F.birds.filter(b => b.sick === 'cocci');
+      if (!list.length) return note('No birds have coccidiosis.');
+      if (!pay(treatCost(), 'health')) return;
+      for (const b of list) b.sick = null;
+      note(`Treated ${list.length} birds with amprolium. Keep the litter clean so it doesn't come back.`, 'good');
+    },
+    incubate() {
+      if (!s.upg.incubator) return;
+      if (s.hatch) return note('The incubator is already full.');
+      const big = s.upg.incubator2 && s.eggs >= 100;
+      if (s.eggs < 20) return note('You need 20 eggs in store to fill the incubator.', 'warn');
+      const eggs = big ? 100 : 20, n = big ? 80 : 16;
+      s.eggs -= eggs;
+      s.hatch = { day: dayOf(s.T) + 3, n };
+      note(`${eggs} eggs are in the incubator. Expect about ${n} chicks in 3 days.`, 'good');
+    },
+    cull() {
+      const list = spentHens();
+      if (!list.length) return note(`You have no spent hens. Hens are spent at ${SPENT_AGE} days, when they lay less than half as much.`);
+      for (const b of list) s.birds.splice(s.birds.indexOf(b), 1);
+      const v = list.length * spentEach();
+      s.stats.culled += list.length;
+      earn(v);
+      note(`Sold ${list.length} spent hens to a trader for ${kes(v)}. That frees space for young layers.`, 'good');
+    },
+    borrow(id) {
+      const o = loanOffers().find(x => x.id === id);
+      if (!o || !o.ok) return;
+      s.loan = { id: o.id, name: o.name, who: o.who, amt: o.amt, owed: o.owed, daily: o.daily, missed: 0, day: dayOf(s.T) };
+      s.cash += o.amt;   // borrowed, not earned: stays out of income and the records
+      note(`${o.who[0].toUpperCase() + o.who.slice(1)} lent you ${kes(o.amt)}. You repay ${kes(o.daily)} each morning for ${o.days} days (${kes(o.owed)} in total).`, 'good');
+      sfx('coin');
+    },
+    repay() {
+      if (!s.loan) return;
+      const L = s.loan;
+      if (!pay(L.owed, 'loan')) return;
+      s.loan = null; s.stats.loansRepaid++;
+      note(`You paid off the ${L.name} early. The interest was flat, so there was no discount, but you are debt-free.`, 'good');
+    },
+    records() { showRecords(); },
+    ach() { showAch(); },
+    buyFeed() {
+      const n = Math.max(1, Math.min(feedBags(), Math.floor(s.cash / bagPrice()))), cost = n * bagPrice();
+      if (!pay(cost, 'feed')) return;
+      s.feedStore += 50 * n; note(`${s.upg.mill ? 'Mixed' : 'Bought'} ${n > 1 ? `${n} bags` : 'a 50 kg bag'} of feed for ${kes(cost)}.`); sfx('coin');
+    },
+    deliver(id) {
+      const o = s.orders.find(x => x.id === +id);
+      if (!o) return;
+      if (o.item === 'eggs') {
+        if (s.eggs < o.qty) return note(`You need ${o.qty} eggs in store for this order. You have ${s.eggs}.`, 'warn');
+        s.eggs -= o.qty; s.stats.sold += o.qty;
+      } else if (o.item === 'broilers') {
+        const have = allBirds().filter(ready).length;
+        if (have < o.qty) return note(`You need ${o.qty} ready broilers for this order. You have ${have}.`, 'warn');
+        takeReady(o.qty); s.stats.broilersSold += o.qty;
+      } else {
+        const hens = s.birds.filter(b => stage(b) === 'hen').sort((a, b) => b.age - a.age);
+        if (hens.length < o.qty) return note(`You need ${o.qty} hens for this order. You have ${hens.length}.`, 'warn');
+        for (const b of hens.slice(0, o.qty)) s.birds.splice(s.birds.indexOf(b), 1);
+      }
+      s.orders.splice(s.orders.indexOf(o), 1);
+      earn(o.pay);
+      s.stats.orders++;
+      s.rep = Math.min(5, s.rep + 0.5);
+      if (s.rival) s.rival.share = Math.max(0.02, s.rival.share - 0.01);
+      note(`Delivered ${o.qty} ${o.item} to ${o.who} for ${kes(o.pay)}. They'll tell their friends.`, 'good');
+    },
+    decline(id) {
+      const o = s.orders.find(x => x.id === +id);
+      if (!o) return;
+      s.orders.splice(s.orders.indexOf(o), 1);
+      s.rep = Math.max(0, s.rep - 0.25);
+      note(`You turned down ${o.who}. Saying no early costs less reputation than letting an order expire.`);
+    },
+    buyK() { buyChicks('k'); },
+    buyB() { buyChicks('b'); },
+    sellEggs() {
+      if (!s.eggs) return note('There are no eggs in store to sell.');
+      const n = s.eggs, v = n * eggEach();
+      s.eggs = 0; s.stats.sold += n; earn(v);
+      note(`Sold ${n} eggs for ${kes(v)}.`, 'good');
+    },
+    sellBroilers() {
+      const list = allBirds().filter(ready);
+      if (!list.length) return note(`No broilers are ready yet. They are ready at ${s.bfarm ? '5 days old on the broiler farm' : '6 days old'}.`);
+      for (const f of farms()) f.birds = f.birds.filter(b => !ready(b));
+      s.stats.broilersSold += list.length;
+      const v = list.reduce((sum, b) => sum + broilerEach() * (b.sick ? 0.6 : 1), 0);   // sick birds fetch less
+      earn(v);
+      note(`Sold ${list.length} broilers for ${kes(v)}.`, 'good');
+    },
+    sellHen() {
+      const hens = s.birds.filter(b => stage(b) === 'hen').sort((a, b) => b.age - a.age);
+      if (!hens.length) return note('You have no hens to sell.');
+      const b = hens[0], v = spent(b) ? spentEach() : henEach();
+      s.birds.splice(s.birds.indexOf(b), 1);
+      if (spent(b)) s.stats.culled++;
+      earn(v);
+      note(`Sold a ${Math.floor(b.age)}-day-old ${spent(b) ? 'spent ' : ''}hen for ${kes(v)}.`);
+    },
+    hire(role) {
+      const r = ROLES[role];
+      if (!r) return;
+      if (r.need && !s.upg[r.need]) return note(`A ${r.name.toLowerCase()} needs the ${UPGRADES.find(u => u.id === r.need).name.toLowerCase()} first.`, 'warn');
+      const w = hire(role);
+      if (!w) return note(s.staff.length >= MAX_STAFF ? `You have ${MAX_STAFF} workers already.` : `You already have a ${r.name.toLowerCase()}.`, 'warn');
+      note(`You hired ${w.name} as a ${r.name.toLowerCase()}${r.farm ? where() : ''} for ${kes(wageOf(w))} a day (paid weekly).`, 'good');
+    },
+    train(id) {
+      const w = s.staff.find(x => x.id === +id);
+      if (!w) return;
+      if (w.skill >= 3) return note(`${w.name} is already fully trained.`);
+      if (!pay(trainCost(w), 'labour')) return;
+      w.skill++; w.morale = Math.min(100, w.morale + 10);
+      s.stats.trained = (s.stats.trained || 0) + 1;
+      note(`${w.name} finished a course and is now skill ${w.skill}. Wages go up 30% a level.`, 'good');
+    },
+    fire(id) {
+      const w = s.staff.find(x => x.id === +id);
+      if (!w) return;
+      if (w.owed > 0 && !pay(w.owed, 'labour')) return;
+      s.staff.splice(s.staff.indexOf(w), 1);
+      note(`You let ${w.name} go and paid what they were owed.`);
+    },
+    accept(id) {
+      const o = s.offers.find(x => x.id === +id);
+      if (!o) return;
+      if (s.contracts.length >= contractSlots()) return note(`You can run ${contractSlots()} contract${contractSlots() > 1 ? 's' : ''} at once. A truck and a driver each add one.`, 'warn');
+      s.offers.splice(s.offers.indexOf(o), 1);
+      s.contracts.push(o);
+      note(`Contract signed with ${o.who}: ${o.qty} ${o.item} ${o.every === 1 ? 'every day' : 'every week'}, ${o.total} loads, first load on day ${o.next}.`, 'good');
+    },
+    reject(id) {
+      const o = s.offers.find(x => x.id === +id);
+      if (o) s.offers.splice(s.offers.indexOf(o), 1);
+    },
+    supply(id) {
+      const c = s.contracts.find(x => x.id === +id);
+      if (c) supply(c);
+    },
+    sellFeed() {
+      if (!s.upg.mill) return;
+      const bags = Math.min(10, Math.floor(s.feedStore / 50), 40 - s.feedSold);
+      if (bags <= 0) return note(s.feedSold >= 40 ? 'Neighbours have bought all the feed they need today (40 bags).' : 'You need at least 50 kg in store to sell a bag.', 'warn');
+      const each = Math.round(s.prices.bag * 0.9);
+      s.feedStore -= bags * 50; s.feedSold += bags; s.stats.feedSold += bags;
+      earn(bags * each);
+      note(`Sold ${bags} bags of your own-mix feed to neighbours for ${kes(bags * each)}.`, 'good');
+    },
+    hatchToggle() {
+      s.hatchOn = !s.hatchOn;
+      note(s.hatchOn ? 'The hatchery is back on: spare eggs will be hatched each morning.' : 'The hatchery is paused: all eggs stay in store.');
+    },
+    buySp(kind) {
+      const k = SPECIES[kind];
+      if (!k || !s.xfarm) return;
+      if (k.kws && !s.upg.kws) return note(`${k.plural[0].toUpperCase() + k.plural.slice(1)} are wildlife in Kenya: you need a KWS permit first (Upgrades).`, 'warn');
+      buyChicks(kind);
+    },
+    sellSp() {
+      if (!s.xfarm) return;
+      const list = s.xfarm.birds.filter(spReady);
+      if (!list.length) return note('No special birds are ready to sell yet.');
+      s.xfarm.birds = s.xfarm.birds.filter(b => !spReady(b));
+      const v = list.reduce((a, b) => a + spEach(b.kind) * (b.sick ? 0.6 : 1), 0);
+      for (const b of list) s.stats.spSold[b.kind] = (s.stats.spSold[b.kind] || 0) + 1;
+      if (festive() && s.event.name === 'Christmas') s.stats.xmasTurkeys += list.filter(b => b.kind === 't').length;
+      earn(v);
+      note(`Sold ${list.length} special birds for ${kes(v)}.`, 'good');
+    },
+    sellQEggs() {
+      if (!s.qeggs) return note('There are no quail eggs to sell.');
+      const n = s.qeggs, v = n * s.prices.qegg;
+      s.qeggs = 0; s.stats.qSold += n; earn(v);
+      note(`Sold ${n} quail eggs for ${kes(v)}.`, 'good');
+    },
+    view(i) {
+      const v = +i === 1 && s.bfarm ? 1 : +i === 2 && s.xfarm ? 2 : 0;
+      if (v === s.view) return;
+      s.view = v; F = viewFarm();
+      hawk = null; floats = [];   // a hawk over the other farm gives up when you walk away
+      sfx('click');
+    },
+  };
+
+  // Chicks go to their own farm whichever farm you are looking at.
+  function buyChicks(kind) {
+    const home = homeFarm(kind);
+    inFarm(home, () => {
+      const each = kind === 'k' ? PRICE.kChick : PRICE.bChick;
+      const batch = chickBatch(), room = cap() - F.birds.length;
+      const n = Math.min(batch, room, Math.floor(s.cash / each));
+      if (room <= 0) return note(`The ${F === s ? 'coop' : farmName(F).toLowerCase()} is full. Sell birds or expand it.`, 'warn');
+      if (n <= 0) return note(`Not enough cash. One chick costs ${kes(each)}.`, 'warn');
+      spend(n * each, 'chicks');
+      for (let i = 0; i < n; i++) { const b = addBird(kind, 0); b.x = DOOR_PT.x + 20 + Math.random() * 60; b.y = DOOR_PT.y + 20 + Math.random() * 30; }
+      note(`Bought ${n} ${kind === 'k' ? 'improved kienyeji' : 'broiler'} chicks for ${kes(n * each)}${where()}.` + (n < batch ? ' (That was all you could fit or afford.)' : ''));
+      sfx('cluck');
+    });
+  }
+
+  function act(name, arg) {
+    if (s.over || !ACTIONS[name]) return;
+    ACTIONS[name](arg);
+    checkGoals();
+    refreshUI();
+  }
+
+  // Farm equipment an upgrade row can offer on farm f (no layer lamp on the broiler farm).
+  function farmUpgrades(f) {
+    return UPGRADES.filter(u => FARM_UPG.includes(u.id) && !(f !== s && u.id === 'solar') && (!u.req || f.upg[u.req]));
+  }
+  function buyUpgrade(id) {
+    if (id === 'hand') return act('hire', 'hand');   // older name for hiring a farmhand
+    if (id === 'coop') {
+      const costs = tierCosts(F);
+      if (F.coop >= costs.length) return;
+      if (!pay(costs[F.coop], 'capex')) return;
+      F.coop++; note(`The ${farmName(F).toLowerCase()} now holds ${cap().toLocaleString('en-KE')} birds.`, 'good');
+    } else if (id === 'xfarm') {
+      if (s.xfarm || s.coop < 3) return;
+      if (!pay(XFARM_COST, 'capex')) return;
+      s.xfarm = newFarm('x');
+      note(`Your special birds farm is built (${farmCap(s.xfarm)} birds). Ducks and turkeys need no permit; quail and guinea fowl need a KWS permit.`, 'good');
+    } else if (id === 'bfarm') {
+      if (s.bfarm || s.coop < 2) return;
+      if (!pay(BFARM_COST, 'capex')) return;
+      s.bfarm = newFarm();
+      // Move the broilers across (as many as fit); none are bought for the kienyeji farm from now on.
+      const move = s.birds.filter(b => b.kind === 'b').slice(0, farmCap(s.bfarm));
+      s.birds = s.birds.filter(b => !move.includes(b));
+      for (const b of move) { b.bf = true; b.inside = false; }
+      s.bfarm.birds.push(...move);
+      note(`Your broiler farm is built (${farmCap(s.bfarm)} birds)${move.length ? ` and ${move.length} broilers moved over` : ''}. Switch farms with the tabs above the yard.`, 'good');
+    } else {
+      const u = UPGRADES.find(x => x.id === id);
+      const own = FARM_UPG.includes(id) ? F.upg : s.upg;   // farm equipment or whole-business
+      if (!u || own[id] || (u.req && !own[u.req]) || s.coop < (u.minCoop || 0) || (F !== s && id === 'solar')) return;
+      if (!pay(u.cost, 'capex')) return;
+      own[id] = true;
+      if (id === 'auto') F.water = Math.max(F.water, 60);
+      note(`${u.name}${FARM_UPG.includes(id) ? where() : ''}: done!`, 'good');
+    }
+    sfx('coin'); checkGoals(); refreshUI(); save();
+  }
+
+  function checkGoals() {
+    for (const a of ACH) {
+      if (s.ach[a.id]) continue;
+      const [cur, goal] = a.p();
+      if (cur < goal) continue;
+      s.ach[a.id] = dayOf(s.T);
+      note(`🏅 Achievement: ${a.t}`, 'good');
+    }
+    const r = rank().name;
+    if (s.rank !== r) {
+      const up = RANKS.findIndex(x => x.name === r) > RANKS.findIndex(x => x.name === s.rank);
+      s.rank = r;
+      if (up) { note(`You are now a ${r}! (Achievements screen: 🏅 in the header.)`, 'good'); sfx('coin'); }
+    }
+    for (const g of GOALS) {
+      if (s.goals[g.id] || !g.ok()) continue;
+      s.goals[g.id] = dayOf(s.T);
+      note(`Goal complete: ${g.t}`, 'good');
+      if (g.id === 'baron' && !s.won) { s.won = true; showWin(); }
+      if (g.id === 'tycoon' && !s.tycoon) { s.tycoon = true; showTycoon(); }
+      if (g.id === 'mogul' && !s.mogul) { s.mogul = true; showMogul(); }
+    }
+    if (!s.over && !totalBirds() && s.cash < PRICE.bChick && !s.hatch) { s.over = true; showOver(); }
+  }
+
+  function clickAt(x, y) {
+    if (s.over) return;
+    if (hawk && hawk.mode !== 'leave' && Math.hypot(x - hawk.x, y - hawk.y) < 50) return scareHawk(false);
+    for (let i = F.yardEggs.length - 1; i >= 0; i--) {
+      const e = F.yardEggs[i];
+      if (Math.hypot(x - e.x, y - e.y) < 18) {
+        F.yardEggs.splice(i, 1); s.eggs++; s.stats.collected++;
+        float(e.x, e.y - 12, '+1 🥚', '#fff8dc'); sfx('egg'); checkGoals(); return;
+      }
+    }
+    if (F === s && inRect(x, y, NEST)) return act('nest');
+    if (inRect(x, y, FEEDER)) return act('feeder');
+    if (inRect(x, y, DRINK)) return act('water');
+    if (inRect(x, y, { x: DOOR.x - 6, y: DOOR.y - 6, w: DOOR.w + 12, h: DOOR.h + 24 })) return act('door');
+    let best = null, bd = 20;
+    for (const b of visibleBirds()) { const d = Math.hypot(x - b.x, y - (b.y - 10)); if (d < bd) { bd = d; best = b; } }
+    if (best) {
+      const st = stage(best), name = best.kind === 'b' ? (st === 'chick' ? 'Broiler chick' : ready(best) ? 'Broiler, ready' : 'Broiler') : spent(best) ? 'Spent hen' : st[0].toUpperCase() + st.slice(1);
+      float(best.x, best.y - 34, `${name} · ${Math.floor(best.age)}d · ${Math.round(best.health)}%${vaccinated(best) ? ' · 💉' : ''}${best.sick ? ' · sick' : ''}`, '#fff');
+      sfx('cluck');
+    }
+  }
+
+  // ---------- save ----------
+  // Two 5,000-bird farms as full objects would be ~2.4 MB, near the browser's storage limit.
+  // Birds are saved as short tuples without their on-screen position.
+  const packBirds = list => list.map(b => [b.id, b.kind, Math.round(b.age * 1000) / 1000, Math.round(b.health * 10) / 10, b.vaccUntil, b.sick, Math.round(b.layAt * 100) / 100, b.bf ? 1 : 0]);
+  function unpackBird(a) {
+    if (!Array.isArray(a)) return a;   // saves from before packing hold full objects
+    const x = YARD.x0 + 40 + Math.random() * (YARD.x1 - YARD.x0 - 80), y = YARD.y0 + Math.random() * (YARD.y1 - YARD.y0);
+    const b = { id: a[0], kind: a[1], age: a[2], health: a[3], vaccUntil: a[4], sick: a[5], layAt: a[6],
+      x, y, tx: x, ty: y, face: Math.random() < 0.5 ? -1 : 1, phase: Math.random() * 6, wait: Math.random() * 2, inside: false, moving: false };
+    if (a[7]) b.bf = true;
+    return b;
+  }
+  function save() {
+    try {
+      const out = { ...s, birds: packBirds(s.birds) };
+      if (s.bfarm) out.bfarm = { ...s.bfarm, birds: packBirds(s.bfarm.birds) };
+      if (s.xfarm) out.xfarm = { ...s.xfarm, birds: packBirds(s.xfarm.birds) };
+      localStorage.setItem(KEY, JSON.stringify(out));
+    } catch (e) { console.warn('Could not save the farm', e); }
+  }
+  // Older saves are still v1; fill in the fields added since, so they keep working.
+  // oldFeat is the feature level the save was made at (0 = before customer orders), so the intro can list what's new.
+  let oldFeat = FEAT;
+  function migrate(o) {
+    oldFeat = !Array.isArray(o.orders) ? 0 : (o.feat || 1);
+    if (!Array.isArray(o.orders)) o.orders = [];
+    o.feat = FEAT;
+    o.birds = o.birds.map(unpackBird);
+    o.bfarm = o.bfarm || null;
+    o.xfarm = o.xfarm || null;
+    if (o.xfarm) { o.xfarm.birds = o.xfarm.birds.map(unpackBird); o.xfarm.special = true; }
+    o.qeggs = o.qeggs || 0;
+    o.prices.qegg = o.prices.qegg || 11; o.prices.sp = o.prices.sp || 1; o.prices.doc = o.prices.doc || 70;
+    o.prev.qegg = o.prev.qegg || o.prices.qegg; o.prev.sp = o.prev.sp || 1; o.prev.doc = o.prev.doc || 70;
+    o.stats.spSold = o.stats.spSold || {};
+    for (const k of ['xmasTurkeys', 'qSold', 'qLaid', 'docSold', 'feedSold', 'plates']) o.stats[k] = o.stats[k] || 0;
+    o.hatchOn = o.hatchOn !== false; o.feedSold = o.feedSold || 0;
+    o.ach = o.ach || {}; o.streak = o.streak || { clean: 0, rep5: 0, noTheft: 0 }; o.fluHit = !!o.fluHit;
+    if (!o.seen) { o.seen = {}; for (const f of [o, o.bfarm, o.xfarm]) if (f) for (const b of f.birds) o.seen[b.kind] = 1; }
+    o.rank = o.rank || 'Mkulima';
+    if (o.bfarm) { o.bfarm.birds = o.bfarm.birds.map(unpackBird); o.bfarm.broiler = true; }
+    o.view = o.view === 1 && o.bfarm ? 1 : o.view === 2 && o.xfarm ? 2 : 0;
+    o.mogul = !!o.mogul;
+    // Farmhands used to be an upgrade; they are staff now.
+    if (!Array.isArray(o.staff)) o.staff = [];
+    for (const k of ['contracts', 'offers', 'receivables']) if (!Array.isArray(o[k])) o[k] = [];
+    for (const k of ['broken', 'stolen', 'taxPaid', 'contracts', 'contractsFailed', 'loads', 'badDebt', 'collectedRx', 'hired', 'trained']) o.stats[k] = o.stats[k] || 0;
+    o.flu = o.flu || 0; o.rival = o.rival || null; o.taxOwed = o.taxOwed || 0;
+    for (const [i, f] of [o, o.bfarm].entries()) {
+      if (f && f.upg && f.upg.hand) { o.staff.push({ id: o.nextId++, role: 'hand', name: NAMES[(i * 7 + 3) % NAMES.length], farm: i, skill: 1, morale: 70, owed: 0 }); delete f.upg.hand; }
+    }
+    o.loan = o.loan || null;
+    o.event = o.event || null;
+    o.dryTank = !!o.dryTank;
+    if (!Array.isArray(o.hist)) o.hist = [];
+    o.stats.culled = o.stats.culled || 0;
+    o.stats.loansRepaid = o.stats.loansRepaid || 0;
+    o.prices.spent = o.prices.spent || 600;
+    o.prev.spent = o.prev.spent || o.prices.spent;
+    if (!o.today || !o.today.costs) o.today = blankDay(o);
+    if (typeof o.rep !== 'number') o.rep = 3;
+    o.rain = o.rain || 0;
+    o.tycoon = !!o.tycoon;
+    o.stats.orders = o.stats.orders || 0;
+    o.stats.manure = o.stats.manure || 0;
+    return o;
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      if (o && o.v === 1 && Array.isArray(o.birds)) return migrate(o);
+      console.warn('Ignoring an unrecognised farm save');
+    } catch (e) { console.warn('Could not load the farm save', e); }
+    return null;
+  }
+
+  // ---------- drawing ----------
+  const STARS = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.random() * 120, s: Math.random() < 0.2 ? 2 : 1 }));
+  const TUFTS = Array.from({ length: 160 }, () => {
+    const inYard = Math.random() < 0.35;
+    return inYard ? { x: 50 + Math.random() * 860, y: 360 + Math.random() * 220, c: '#9a8a4e' }
+                  : { x: Math.random() * W, y: 140 + Math.random() * 200, c: '#6e9f38' };
+  }).filter(t => !(t.x < 340 && t.y < 350 && t.y > 150));
+
+  function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+  function mix(a, b, t) {
+    const A = hexToRgb(a), B = hexToRgb(b);
+    return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`;
+  }
+  function darkness(h) {
+    if (h >= 7 && h < 18) return 0;
+    if (h >= 18 && h < 19.5) return (h - 18) / 1.5;
+    if (h >= 5 && h < 7) return 1 - (h - 5) / 2;
+    return 1;
+  }
+  function poly(pts, fill) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) ctx.lineTo(p[0], p[1]); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); }
+  function ell(x, y, rx, ry, fill, rot = 0) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); }
+  function rect(x, y, w, h, fill) { ctx.fillStyle = fill; ctx.fillRect(x, y, w, h); }
+  function line(x1, y1, x2, y2, col, w = 1) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.stroke(); }
+
+  function drawSky(h, dark) {
+    const g = ctx.createLinearGradient(0, 0, 0, 150);
+    g.addColorStop(0, '#5fb0e6'); g.addColorStop(1, '#cdeefa');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, 150);
+    const warm = Math.max(0, 1 - Math.abs(h - 18.6) / 1.3, 1 - Math.abs(h - 6.2) / 1.3);
+    if (warm > 0) { const w = ctx.createLinearGradient(0, 40, 0, 150); w.addColorStop(0, 'rgba(255,150,70,0)'); w.addColorStop(1, `rgba(255,140,60,${warm * 0.6})`); ctx.fillStyle = w; ctx.fillRect(0, 40, W, 110); }
+    if (isDayH(h)) {
+      const t = (h - 6) / 12.5, sx = 60 + t * 840, sy = 125 - Math.sin(Math.PI * t) * 100;
+      ell(sx, sy, 22, 22, 'rgba(255,230,120,.35)'); ell(sx, sy, 15, 15, '#ffe37a');
+    }
+    // Mt Kenya and the Nyambene hills
+    poly([[300, 150], [440, 100], [520, 66], [548, 42], [560, 52], [574, 30], [590, 50], [612, 60], [680, 96], [820, 150]], '#6f8aa3');
+    poly([[522, 66], [548, 42], [560, 52], [574, 30], [590, 50], [612, 60], [596, 64], [584, 58], [572, 70], [560, 62], [548, 72], [535, 70]], '#f4f8fb');
+    ell(120, 160, 260, 50, '#5e9a3e'); ell(820, 165, 280, 55, '#548f37'); ell(480, 175, 340, 40, '#64a142');
+    void dark;
+  }
+
+  function drawGround() {
+    rect(0, 140, W, H - 140, '#86b94a');
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(36, 344, 892, 250, 10) : ctx.rect(36, 344, 892, 250);
+    ctx.fillStyle = '#b89865'; ctx.fill();
+    for (const t of TUFTS) { line(t.x, t.y, t.x - 2, t.y - 5, t.c, 1.5); line(t.x, t.y, t.x + 2, t.y - 6, t.c, 1.5); }
+  }
+
+  function drawTrees() {
+    // Banana plants and a big shade tree behind the fence
+    for (const [x, y, sc] of [[860, 300, 1], [900, 318, .8], [360, 305, .75]]) {
+      rect(x - 3 * sc, y - 40 * sc, 6 * sc, 42 * sc, '#6d8b3a');
+      for (const a of [-2.3, -1.6, -0.9, -0.3, 0.4]) ell(x + Math.cos(a) * 18 * sc, y - 44 * sc + Math.sin(a) * 10 * sc, 22 * sc, 7 * sc, '#4f8f2f', a);
+    }
+    rect(716, 230, 14, 110, '#6b4a2f');
+    ell(722, 222, 58, 40, '#3f7d2b'); ell(690, 238, 36, 28, '#478a31'); ell(758, 240, 38, 28, '#468830'); ell(724, 196, 40, 26, '#4c9235');
+  }
+
+  // Long layer houses behind the fence, one per coop tier above 400 birds.
+  function drawHouse(x, y, w, h, dark) {
+    rect(x, y, w, h, '#c9b79c');
+    rect(x + 8, y + 16, w - 16, h - 34, '#2e1f17');
+    for (let i = x + 12; i < x + w - 10; i += 9) line(i, y + 16, i, y + h - 18, 'rgba(210,210,210,.3)');
+    if (dark > 0.3) rect(x + 8, y + 16, w - 16, h - 34, 'rgba(255,220,130,.35)');
+    poly([[x - 10, y + 4], [x + w + 10, y + 4], [x + w - 6, y - 26], [x + 6, y - 26]], '#b7c3c9');
+    for (let i = x + 4; i < x + w; i += 12) line(i, y - 25, i - 6, y + 3, '#93a3ab', 2);
+  }
+  // Small far-off houses on the hills for the 2,500 and 5,000 tiers.
+  function drawHillHouse(x, y, dark) {
+    rect(x, y, 54, 14, '#d6cab3');
+    rect(x + 4, y + 4, 46, 5, dark > 0.3 ? 'rgba(255,220,130,.8)' : '#3a2a20');
+    poly([[x - 4, y + 1], [x + 58, y + 1], [x + 52, y - 7], [x + 2, y - 7]], '#aeb9bf');
+  }
+  function drawExpansion(dark) {
+    // The broiler farm reaches the same buildings three tiers sooner (its ladder starts at 200 birds).
+    const tier = F.coop + FT[ftype(F)].tierOffset;
+    if (tier >= 4) drawHouse(446, 262, 190, 70, dark);
+    if (tier >= 5) drawHouse(824, 262, 104, 70, dark);
+    if (tier >= 6) for (const x of [296, 358, 420]) drawHillHouse(x, 174, dark);
+    if (tier >= 7) for (const x of [736, 808, 880]) drawHillHouse(x, 176, dark);
+    if (s.upg.tank) {
+      // green plastic water tank on a stand, left of the shade tree
+      rect(652, 300, 4, 34, '#5d4037'); rect(682, 300, 4, 34, '#5d4037');
+      rect(646, 262, 46, 40, '#2f6b3a'); ell(669, 262, 23, 6, '#3c8048');
+      for (let y = 272; y < 300; y += 9) line(646, y, 692, y, 'rgba(0,0,0,.18)', 1.5);
+    }
+    if (s.upg.truck) {
+      const x = 344, y = 300;
+      ell(x + 40, y + 36, 46, 5, 'rgba(0,0,0,.2)');
+      rect(x, y + 8, 50, 22, '#e8e2d0');
+      poly([[x + 50, y + 30], [x + 50, y + 2], [x + 68, y + 2], [x + 82, y + 16], [x + 82, y + 30]], '#e8e2d0');
+      poly([[x + 54, y + 6], [x + 67, y + 6], [x + 77, y + 16], [x + 54, y + 16]], '#7fb2d6');
+      rect(x + 4, y + 12, 42, 6, '#b73a2f');
+      for (const wx of [x + 16, x + 66]) { ell(wx, y + 31, 8, 8, '#222'); ell(wx, y + 31, 3.5, 3.5, '#aaa'); }
+    }
+  }
+
+  function drawRain(t) {
+    if (!s.rain) return;
+    rect(0, 0, W, 150, 'rgba(90,100,115,.45)');
+    ctx.strokeStyle = 'rgba(200,215,235,.45)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < 120; i++) {
+      const x = (i * 83 + t * 90) % W, y = (i * 47 + t * 520) % H;
+      ctx.moveTo(x, y); ctx.lineTo(x - 4, y + 14);
+    }
+    ctx.stroke();
+  }
+
+  function drawCoop(dark) {
+    for (const x of [70, 130, 196, 250]) rect(x, 316, 8, 30, '#5d4037');
+    const bro = F !== s, spec = isX(F);
+    rect(60, 200, 200, 122, spec ? '#9fb58f' : bro ? '#cfc6b4' : '#a1887f');
+    for (let y = 212; y < 322; y += 12) line(60, y, 260, y, 'rgba(60,40,30,.3)');
+    rect(76, 222, 52, 34, '#2e1f17');
+    for (let i = 0; i < 7; i++) { line(76 + i * 8, 222, 76 + i * 8 + 10, 256, 'rgba(210,210,210,.35)'); line(86 + i * 8, 222, 76 + i * 8, 256, 'rgba(210,210,210,.35)'); }
+    poly([[42, 206], [278, 206], [256, 158], [64, 158]], '#b7c3c9');
+    for (let x = 66; x < 262; x += 12) line(x, 159, x - 6, 205, '#93a3ab', 2);
+    rect(186, 214, 62, 20, spec ? '#6b3a1d' : bro ? '#1f5f99' : '#f5e6c8');
+    ctx.fillStyle = bro ? '#fff' : '#6b3a1d'; ctx.font = `bold ${bro && !spec ? 10 : 13}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.fillText(spec ? 'NDEGE' : bro ? 'BROILERS' : 'KUKU', 217, bro && !spec ? 228 : 229);
+    if (F.upg.solar) {
+      poly([[150, 170], [196, 170], [192, 186], [146, 186]], '#1d3557');
+      for (let i = 1; i < 4; i++) line(150 + i * 11, 170, 146 + i * 11, 186, '#6c8ebf');
+      ell(252, 212, 5, 5, dark > 0.3 ? '#fff4b0' : '#ddd');
+    }
+    if (F.door) {
+      rect(DOOR.x, DOOR.y, DOOR.w, DOOR.h, '#1b120c');
+      poly([[DOOR.x, DOOR.y], [DOOR.x - 20, DOOR.y + 8], [DOOR.x - 20, DOOR.y + DOOR.h + 6], [DOOR.x, DOOR.y + DOOR.h]], '#8d6e63');
+    } else {
+      rect(DOOR.x, DOOR.y, DOOR.w, DOOR.h, '#8d6e63');
+      for (let x = DOOR.x + 11; x < DOOR.x + DOOR.w; x += 11) line(x, DOOR.y, x, DOOR.y + DOOR.h, 'rgba(50,30,20,.45)');
+      rect(DOOR.x + DOOR.w - 10, DOOR.y + 28, 6, 6, '#444');
+    }
+    poly([[DOOR.x, 330], [DOOR.x + DOOR.w, 330], [DOOR.x + DOOR.w + 4, 356], [DOOR.x - 4, 356]], '#8d6e63');
+    for (let y = 336; y < 356; y += 6) line(DOOR.x - 2, y, DOOR.x + DOOR.w + 2, y, 'rgba(50,30,20,.5)', 1.5);
+    if (spec) {
+      // a duck pond in the yard corner
+      if (F.birds.some(b => b.kind === 'd')) { ell(820, 540, 70, 22, '#3f7fb5'); ell(810, 536, 50, 12, '#6aa7d6'); }
+      return;
+    }
+    if (bro) {
+      // no nest box on the broiler farm: a stack of broiler-finisher bags instead
+      for (const [bx, by] of [[266, 292], [296, 292], [281, 274]]) { rect(bx, by, 28, 18, '#e9e2cf'); rect(bx, by + 6, 28, 5, '#c0392b'); }
+      return;
+    }
+    // nest box
+    rect(NEST.x, NEST.y, NEST.w, NEST.h, '#795548');
+    poly([[NEST.x - 4, NEST.y], [NEST.x + NEST.w + 4, NEST.y], [NEST.x + NEST.w, NEST.y - 10], [NEST.x, NEST.y - 10]], '#a1887f');
+    rect(NEST.x + 6, NEST.y + 14, NEST.w - 12, NEST.h - 20, '#3b2a1e');
+    rect(NEST.x + 6, NEST.y + 34, NEST.w - 12, 10, '#e2c35d');
+    for (let i = 0; i < Math.min(F.nestEggs, 6); i++) ell(NEST.x + 14 + i * 8, NEST.y + 33, 4, 5, '#fff3dc');
+    if (F.nestEggs) badge(NEST.x + NEST.w - 2, NEST.y - 8, F.nestEggs);
+  }
+
+  function badge(x, y, n) {
+    ell(x, y, 12, 11, '#e8a33d');
+    ctx.fillStyle = '#1a120b'; ctx.font = 'bold 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(n > 99 ? '99+' : String(n), x, y + 4);
+  }
+
+  function levelBar(x, y, w, frac, col) {
+    rect(x, y, w, 7, 'rgba(0,0,0,.35)');
+    rect(x + 1, y + 1, (w - 2) * clamp(frac, 0, 1), 5, frac < 0.2 ? '#e74c3c' : col);
+  }
+
+  function drawFeeders() {
+    const f = FEEDER, d = DRINK;
+    // tube feeder
+    line(f.x + 35, f.y - 4, f.x + 35, f.y + 8, '#555', 2);
+    rect(f.x + 24, f.y + 6, 22, 34, '#c62828');
+    rect(f.x + 26, f.y + 40 - 32 * clamp(F.feeder / feederCap(), 0, 1), 18, 32 * clamp(F.feeder / feederCap(), 0, 1), 'rgba(230,190,110,.8)');
+    ell(f.x + 35, f.y + 44, 32, 9, '#e53935');
+    ell(f.x + 35, f.y + 42, 26, 6, F.feeder > 0 ? '#d9b86c' : '#7a1c1c');
+    levelBar(f.x + 5, f.y + 56, 60, F.feeder / feederCap(), '#e8c066');
+    // drinker
+    if (F.upg.auto) {
+      rect(772, 262, 34, 44, '#1e5fa8'); rect(768, 304, 42, 6, '#555'); rect(772, 310, 4, 36, '#555'); rect(802, 310, 4, 36, '#555');
+      line(789, 306, 789, 360, '#888', 3); line(789, 360, d.x + 35, 360, '#888', 3); line(d.x + 35, 360, d.x + 35, d.y + 20, '#888', 3);
+    }
+    ctx.beginPath();
+    ctx.moveTo(d.x + 22, d.y + 40); ctx.quadraticCurveTo(d.x + 22, d.y + 4, d.x + 35, d.y + 2);
+    ctx.quadraticCurveTo(d.x + 48, d.y + 4, d.x + 48, d.y + 40); ctx.closePath(); ctx.fillStyle = '#1e88e5'; ctx.fill();
+    ell(d.x + 35, d.y + 44, 30, 8, '#1565c0');
+    const wf = autoWater() ? 1 : F.drinker / drinkCap();
+    ell(d.x + 35, d.y + 42, 24, 5, wf > 0 ? '#8fd3ff' : '#0d3c70');
+    levelBar(d.x + 5, d.y + 56, 60, wf, '#5dade2');
+  }
+
+  function drawDog(dark) {
+    if (!F.upg.dog) return;
+    const x = 330, y = 368, bark = hawk && hawk.mode === 'circle';
+    ell(x, y + 10, 26, 5, 'rgba(0,0,0,.2)');
+    ell(x, y, 22, 10, '#8a5a2b');
+    ell(x + 20, y - 8 - (bark ? 3 : 0), 10, 9, '#8a5a2b');
+    ell(x + 27, y - 5 - (bark ? 3 : 0), 6, 4, '#6d4520');
+    ell(x + 16, y - 14 - (bark ? 3 : 0), 4, 7, '#5a3818', -0.4);
+    ell(x + 29, y - 7 - (bark ? 3 : 0), 2, 2, '#111');
+    line(x - 20, y - 2, x - 32, y - 12 + Math.sin(performance.now() / 150) * 3, '#8a5a2b', 4);
+    if (bark) { ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillText('Woof!', x + 32, y - 22); }
+    void dark;
+  }
+
+  function drawPerson(x, y, shirt, hat) {
+    ell(x, y + 32, 12, 4, 'rgba(0,0,0,.2)');
+    rect(x - 6, y + 12, 5, 20, '#2f3e52'); rect(x + 1, y + 12, 5, 20, '#2f3e52');
+    rect(x - 9, y - 10, 18, 24, shirt);
+    ell(x, y - 18, 8, 9, '#6b4226');
+    if (hat) { rect(x - 11, y - 28, 22, 4, hat); rect(x - 6, y - 36, 12, 9, hat); }
+  }
+  // Up to three farmhands, an egg collector with a basket, and the watchman by the door at night.
+  function drawFarmhand(dark) {
+    const hands = staffOn('hand', F).length;
+    for (let i = 0; i < Math.min(3, hands); i++) drawPerson(405 + i * 150, 390 + (i % 2) * 70, '#2e7d32', '#d8c38a');
+    if (hasStaff('collect', F)) { drawPerson(700, 470, '#8e44ad', null); ell(712, 480, 9, 6, '#b8864b'); }
+    if (hasStaff('watch', F) && dark > 0.3) { drawPerson(118, 360, '#34495e', '#1b2631'); ell(128, 360, 3, 3, '#ffe066'); }
+  }
+
+  function drawEgg(e, t) {
+    const pulse = 1 + Math.sin(t * 4 + e.p) * 0.08;
+    ell(e.x, e.y + 5, 7, 2.5, 'rgba(0,0,0,.2)');
+    ctx.beginPath(); ctx.arc(e.x, e.y, 12 * pulse, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,248,220,.45)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ell(e.x, e.y, 5, 6.5, '#fff1d6');
+    ell(e.x - 1.5, e.y - 2, 1.6, 2.2, 'rgba(255,255,255,.8)');
+  }
+
+  // Hundreds of birds drawn as ~12 vector shapes each made frames take 100+ ms, so each pose is
+  // drawn once into a small sprite and stamped with drawImage.
+  const SPR = { w: 64, h: 56, ox: 32, oy: 46 };
+  const sprites = new Map();
+  function sprite(key, paint) {
+    let c = sprites.get(key);
+    if (c) return c;
+    c = document.createElement('canvas');
+    c.width = SPR.w * DPR; c.height = SPR.h * DPR;
+    const main = ctx;
+    ctx = c.getContext('2d');
+    ctx.setTransform(DPR, 0, 0, DPR, SPR.ox * DPR, SPR.oy * DPR);
+    try { paint(); } finally { ctx = main; }
+    sprites.set(key, c);
+    return c;
+  }
+
+  function drawBird(b) {
+    const st = stage(b);
+    const SPSC = { q: 0.6, d: 1, t: 1.3, g: 0.9 };
+    const sc = st === 'chick' ? 0.55 : sp(b) ? SPSC[b.kind] : st === 'pullet' ? 0.8 : st === 'broiler' ? 0.85 + Math.floor(Math.min(b.age, 8)) * 0.035 : 1;
+    const peck = !b.moving && Math.sin(b.phase * 5) > 0.6;
+    const raw = b.moving ? Math.sin(b.phase * 14) : 0;
+    const step = raw > 0.35 ? 2.5 : raw < -0.35 ? -2.5 : 0;
+    const old = spent(b);
+    const img = sprite(`${b.kind}${st}${sc}${b.face}${peck ? 1 : 0}${step}${old ? 'o' : ''}`, () => (sp(b) && st !== 'chick' ? paintSpecies : paintBird)(b.kind, st, sc, b.face, peck, step, old));
+    ctx.drawImage(img, b.x - SPR.ox, b.y - SPR.oy, SPR.w, SPR.h);
+    if (b.sick) { ell(b.x, b.y - 30 * sc - 4, 4, 4, b.sick === 'nd' ? '#7bd46b' : '#c7a3e8'); }
+    if (ready(b) || spReady(b)) {
+      const tick = sprite('tick', () => { ctx.fillStyle = '#ffd479'; ctx.font = 'bold 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('✓', 0, 0); });
+      ctx.drawImage(tick, b.x - SPR.ox, b.y - 30 * sc - SPR.oy, SPR.w, SPR.h);
+    }
+  }
+
+  // Spent hens are drawn duller so an ageing flock is visible at a glance.
+  function paintBird(kind, st, sc, face, peck, step, old) {
+    const body = kind === 'b' ? (st === 'chick' ? '#fff6c9' : '#f7f5ee') : st === 'chick' ? '#f6d44a' : st === 'pullet' ? '#c48040' : old ? '#8f7563' : '#8b4a1f';
+    const wing = kind === 'b' ? '#e4e1d6' : st === 'chick' ? '#e8bf2e' : st === 'pullet' ? '#a86a30' : old ? '#6f5a4c' : '#6e3814';
+    ell(0, 1, 11 * sc, 3.2 * sc, 'rgba(0,0,0,.18)');
+    ctx.save(); ctx.scale(face * sc, sc);
+    line(-3, -5, -3 + step, 0, '#e0a526', 2); line(3, -5, 3 - step, 0, '#e0a526', 2);
+    if (st !== 'chick') poly([[-8, -12], [-17, -22], [-16, -11], [-9, -7]], kind === 'b' ? '#ecebe4' : '#3d2412');
+    ell(0, -11, 11, 8, body);
+    ell(-1, -11, 6, 4.5, wing);
+    const hx = peck ? 11 : 8, hy = peck ? -6 : -19;
+    ell(hx, hy, st === 'chick' ? 6 : 5, st === 'chick' ? 6 : 5, body);
+    if (st !== 'chick') { ell(hx - 1, hy - 5, 2.5, 2.5, '#d32f2f'); ell(hx + 2, hy - 5, 2.5, 2.5, '#d32f2f'); ell(hx + 3, hy + 4, 1.8, 2.6, '#d32f2f'); }
+    poly([[hx + 4, hy - 1], [hx + 9, hy + 1], [hx + 4, hy + 2]], '#f0a020');
+    ell(hx + 2, hy - 1, 1.2, 1.2, '#111');
+    ctx.restore();
+  }
+
+  // Grown special birds: quail (small, speckled), duck (white, flat orange bill), turkey (dark, fanned tail,
+  // blue-grey head) and guinea fowl (grey with white spots). Their chicks use the chicken chick sprite.
+  function paintSpecies(kind, st, sc, face, peck, step) {
+    const L = { q: ['#9c7a52', '#7a5c3a'], d: ['#f4f4f0', '#dcdcd4'], t: ['#3b2f2a', '#2a211d'], g: ['#4a4f57', '#3a3e45'] }[kind];
+    ell(0, 1, 12 * sc, 3.4 * sc, 'rgba(0,0,0,.18)');
+    ctx.save(); ctx.scale(face * sc, sc);
+    const leg = kind === 'd' ? '#f08c1a' : '#b77b3a';
+    line(-3, -5, -3 + step, 0, leg, 2); line(3, -5, 3 - step, 0, leg, 2);
+    if (kind === 't') for (let a = -2.6; a <= -0.9; a += 0.35) ell(-11 + Math.cos(a) * 9, -15 + Math.sin(a) * 9, 5, 9, '#6b4a2f', a + Math.PI / 2);
+    ell(0, -11, kind === 'd' ? 13 : 11, kind === 'd' ? 7 : 8, L[0]);
+    ell(-1, -11, 6, 4.5, L[1]);
+    if (kind === 'q' || kind === 'g') for (const [x, y] of [[-5, -13], [0, -8], [4, -13], [-2, -15], [6, -9]]) ell(x, y, 1, 1, kind === 'g' ? '#f3f3f3' : '#e8d8b8');
+    const hx = peck ? 11 : 8, hy = peck ? -6 : kind === 'd' ? -17 : -19;
+    const head = kind === 't' ? '#c9d6e3' : kind === 'g' ? '#dfe8f0' : L[0];
+    ell(hx, hy, kind === 'q' ? 4 : 5, kind === 'q' ? 4 : 5, head);
+    if (kind === 't') ell(hx + 3, hy + 5, 2, 4, '#c0392b');
+    if (kind === 'g') { ell(hx, hy - 5, 2, 3, '#c8a26b'); ell(hx + 2, hy + 4, 1.5, 2, '#c0392b'); }
+    if (kind === 'd') poly([[hx + 3, hy - 1], [hx + 11, hy], [hx + 11, hy + 3], [hx + 3, hy + 3]], '#f08c1a');
+    else poly([[hx + 4, hy - 1], [hx + 9, hy + 1], [hx + 4, hy + 2]], '#f0a020');
+    ell(hx + 2, hy - 1, 1.2, 1.2, '#111');
+    ctx.restore();
+  }
+
+  function drawHawk() {
+    if (!hawk) return;
+    const shadowA = hawk.mode === 'dive' ? 0.35 : 0.15;
+    ell(hawk.x, 470 + (hawk.y - 200) * 0.3, 20, 5, `rgba(0,0,0,${shadowA})`);
+    const f = Math.sin(hawk.flap) * 10;
+    ctx.save(); ctx.translate(hawk.x, hawk.y);
+    poly([[0, 0], [-36, -10 - f], [-22, 2], [-4, 6]], '#4a3322');
+    poly([[0, 0], [36, -10 - f], [22, 2], [4, 6]], '#4a3322');
+    ell(0, 2, 7, 12, '#5d4130');
+    poly([[-5, 12], [5, 12], [0, 22]], '#6e4d38');
+    ell(0, -9, 5, 5, '#e8dcc8');
+    poly([[-2, -6], [2, -6], [0, -2]], '#f0b020');
+    if (hawk.carry) ell(0, 16, 5, 5, '#f6d44a');
+    ctx.restore();
+    if (hawk.mode === 'circle') { ctx.beginPath(); ctx.arc(hawk.x, hawk.y, 30 + Math.sin(hawk.t * 6) * 4, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,90,70,.7)'; ctx.lineWidth = 2; ctx.stroke(); }
+  }
+
+  function drawFence() {
+    const post = '#6b4a2f', rail = '#8a6a48';
+    line(330, 344, 930, 344, rail, 3); line(330, 336, 930, 336, rail, 3);
+    for (let x = 330; x <= 930; x += 50) rect(x - 3, 326, 6, 22, post);
+    line(34, 346, 34, 596, rail, 3); line(930, 346, 930, 596, rail, 3);
+    for (let y = 356; y < 600; y += 50) { rect(31, y - 10, 6, 20, post); rect(927, y - 10, 6, 20, post); }
+    line(34, 594, 930, 594, rail, 4);
+    for (let x = 34; x <= 930; x += 50) rect(x - 3, 580, 6, 20, post);
+  }
+
+  function render() {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const h = hourOf(s.T), dark = darkness(h), t = performance.now() / 1000;
+    drawSky(h, dark);
+    drawGround();
+    drawTrees();
+    drawExpansion(dark);
+    drawCoop(dark);
+    drawFence();
+    drawFeeders();
+    drawDog(dark);
+    drawFarmhand(dark);
+    for (const e of F.yardEggs) drawEgg(e, t);
+    // Past a few hundred birds the yard is a solid crowd anyway, so cap the draw cost; the rest are "in the other houses".
+    const vis = visibleBirds().sort((a, b) => a.y - b.y);
+    for (const b of vis) drawBird(b);
+    drawHawk();
+    drawRain(t);
+    if (dark > 0) {
+      rect(0, 0, W, H, `rgba(6,12,40,${dark * 0.62})`);
+      ctx.fillStyle = `rgba(255,255,255,${dark * 0.9})`;
+      for (const st of STARS) ctx.fillRect(st.x, st.y, st.s, st.s);
+      const mt = hourOf(h - DUSK) / 11.5, mx = 80 + mt * 800, my = 120 - Math.sin(Math.PI * mt) * 90;
+      ell(mx, my, 13, 13, `rgba(245,240,220,${dark})`); ell(mx + 5, my - 3, 11, 11, `rgba(20,30,60,${dark})`);
+      if (F.upg.solar) {
+        const g = ctx.createRadialGradient(252, 212, 2, 252, 240, 160);
+        g.addColorStop(0, `rgba(255,230,150,${0.45 * dark})`); g.addColorStop(1, 'rgba(255,230,150,0)');
+        ctx.fillStyle = g; ctx.fillRect(90, 100, 330, 300);
+      }
+      if (F.door && h >= 19 || F.door && h < 5) {
+        for (const [x, y] of [[62, 372], [900, 420]]) { ell(x, y, 2.5, 2.5, '#ffe066'); ell(x + 8, y, 2.5, 2.5, '#ffe066'); }
+      }
+    }
+    if (F.door && !F.upg.autodoor && (h >= 17.8 || h < 5)) {
+      ctx.beginPath(); ctx.rect(DOOR.x - 6, DOOR.y - 6, DOOR.w + 12, DOOR.h + 12);
+      ctx.strokeStyle = `rgba(240,192,64,${0.5 + Math.sin(t * 6) * 0.4})`; ctx.lineWidth = 3; ctx.stroke();
+    }
+    if (speed === 0 && !modalOpen) {
+      rect(0, 0, W, H, 'rgba(0,0,0,.35)');
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 34px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Paused', W / 2, H / 2);
+      ctx.font = '15px system-ui, sans-serif'; ctx.fillText('Press 1× to carry on', W / 2, H / 2 + 28);
+    }
+    ctx.textAlign = 'center';
+    for (const f of floats) {
+      ctx.globalAlpha = clamp(f.life, 0, 1);
+      ctx.font = 'bold 15px system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(f.text, f.x + 1, f.y + 1);
+      ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ---------- UI ----------
+  let upgSig = '', goalSig = '', logSig = '', orderSig = '', loanSig = '', staffSig = '', conSig = '';
+  function setBtn(id, html, disabled, hot) {
+    const el = $(id); if (!el) return;
+    if (el._h !== html) { el.innerHTML = html; el._h = html; }
+    el.disabled = !!disabled;
+    el.classList.toggle('hot', !!hot);
+  }
+  function meter(id, v) {
+    const el = $('m' + id); el.style.width = clamp(v, 0, 100) + '%';
+    el.className = v < 30 ? 'low' : v < 55 ? 'mid' : '';
+    $('v' + id).textContent = Math.round(v) + '%';
+  }
+  const arrow = (a, b) => (a > b ? '<span class="up">▲</span>' : a < b ? '<span class="down">▼</span>' : '');
+
+  function refreshUI() {
+    const h = hourOf(s.T), d = dayOf(s.T);
+    $('cDay').textContent = `Day ${d}`;
+    $('cClock').textContent = `${isDayH(h) ? '☀️' : '🌙'} ${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60 / 10) * 10).padStart(2, '0')}`;
+    $('cCash').textContent = kes(s.cash);
+    $('cEggs').textContent = `🥚 ${s.eggs} in store`;
+    $('cFeed').textContent = `🌾 ${kg(s.feedStore)} kg feed`;
+    const evTxt = s.event ? { festive: `🎄 ${s.event.name || 'Festive'} season`, drought: '☀️ Drought', shortage: '🌾 Feed shortage', glut: '🥚 Egg glut' }[s.event.id] + ` · ${s.event.left}d` : '';
+    const ce = $('cEvent'); ce.hidden = !evTxt; ce.className = 'chip event'; if (ce.textContent !== evTxt) ce.textContent = evTxt;
+    const c = { chick: 0, pullet: 0, hen: 0, broiler: 0 };
+    let hsum = 0, sickNd = 0, sickC = 0, unv = 0, readyN = 0;
+    for (const b of F.birds) {
+      const st = stage(b); if (b.kind === 'b') c.broiler++; else c[st]++;
+      hsum += b.health; if (b.sick === 'nd') sickNd++; if (b.sick === 'cocci') sickC++; if (!vaccinated(b)) unv++; if (ready(b)) readyN++;
+    }
+    // Market numbers cover the whole business, not just the farm on screen.
+    const readyAll = s.bfarm ? allBirds().filter(ready).length : readyN;
+    const hensAll = F !== s ? s.birds.filter(b => stage(b) === 'hen').length : c.hen;
+    if (isX(F)) {
+      // The special farm shows its four species instead of hens/pullets/chicks/broilers.
+      const n = { q: 0, d: 0, t: 0, g: 0 }, r = { q: 0, d: 0, t: 0, g: 0 };
+      for (const b of F.birds) { n[b.kind]++; if (spReady(b)) r[b.kind]++; }
+      [['Hen', 'q'], ['Pullet', 'd'], ['Chick', 't'], ['Broiler', 'g']].forEach(([id, k]) => {
+        $('n' + id).textContent = n[k] + (r[k] ? ` (${r[k]}✓)` : ''); $('l' + id).textContent = SPECIES[k].plural[0].toUpperCase() + SPECIES[k].plural.slice(1);
+      });
+    } else {
+      $('nHen').textContent = c.hen; $('nPullet').textContent = c.pullet; $('nChick').textContent = c.chick;
+      $('nBroiler').textContent = c.broiler + (readyN ? ` (${readyN}✓)` : '');
+      $('lHen').textContent = 'Hens'; $('lPullet').textContent = 'Pullets'; $('lChick').textContent = 'Chicks'; $('lBroiler').textContent = 'Broilers';
+    }
+    $('capTxt').textContent = `${F.birds.length.toLocaleString('en-KE')} / ${cap().toLocaleString('en-KE')} birds`;
+    const two = farms().length > 1;
+    $('flockName').textContent = two ? farmName(F) : 'Flock';
+    $('choreFarm').textContent = two ? farmName(F) : '';
+    $('upgFarm').textContent = two ? `on screen: ${farmName(F).toLowerCase()}` : '';
+    const issues = new Map(farms().filter(f => f !== F).map(f => [f, farmIssues(f, h)]));
+    const tabs = $('farmTabs');
+    tabs.hidden = !two;
+    if (two) {
+      const tabHtml = farms().map(f => {
+        const warn = f !== F && issues.get(f).length;
+        return `<button data-a="view" data-o="${farmIdx(f)}" class="${f === F ? 'on' : ''}${warn ? ' warn' : ''}">${FT[ftype(f)].icon} ${farmName(f)} <small>${f.birds.length.toLocaleString('en-KE')}${warn ? ' ⚠' : ''}</small></button>`;
+      }).join('');
+      if (tabs._h !== tabHtml) { tabs.innerHTML = tabHtml; tabs._h = tabHtml; }
+    }
+    meter('Fed', F.fed); meter('Water', F.water); meter('Health', F.birds.length ? hsum / F.birds.length : 100); meter('Clean', F.clean);
+
+    const al = [];
+    for (const [f, list] of issues) if (list.length) al.push(`${FT[ftype(f)].icon} ${farmName(f)}: ${list.join(', ')}. Press S or use the tab to go there`);
+    if (F.feeder <= 0 && F.birds.length) al.push('Feeder is empty (F)');
+    if (!autoWater() && F.drinker <= 0 && F.birds.length) al.push('Drinker is empty (W)');
+    if (s.feedStore < 1) al.push('Feed store is empty. Buy a bag');
+    if (hawk && hawk.mode === 'circle') al.push('🦅 Hawk overhead! Tap it');
+    if (F.door && !F.upg.autodoor && (h >= 17.8 || h < 5)) al.push('🌙 Close the coop door (D)');
+    if (sickNd) al.push(`🤒 ${sickNd} sick with Newcastle`);
+    if (sickC) al.push(`🦠 ${sickC} with coccidiosis: treat them`);
+    if (unv && F.birds.length) al.push(`💉 ${unv} not vaccinated`);
+    if (F.outbreak) al.push('⚠ Newcastle outbreak in the area');
+    if (F.yardEggs.length) al.push(`🥚 ${F.yardEggs.length} egg${F.yardEggs.length > 1 ? 's' : ''} in the yard`);
+    if (s.hatch) al.push(`🐣 Chicks hatch on day ${s.hatch.day}`);
+    const spentN = spentHens().length;
+    if (spentN && spentN >= Math.max(3, hensAll * 0.1)) al.push(`🐓 ${spentN} spent hens (${SPENT_AGE}+ days) barely lay. Cull them in the market`);
+    if (festive()) al.push(`🎉 ${s.event.name} season: broilers +40%, hens +30%, eggs +10% (${s.event.left} day${s.event.left > 1 ? 's' : ''} left)`);
+    if (ev('drought')) al.push(F.dryTank ? '☀️ Drought: the drinker tank is dry, fill water by hand (W)' : `☀️ Drought: birds drink twice as much (${s.event.left} day${s.event.left > 1 ? 's' : ''} left)`);
+    if (ev('shortage')) al.push(s.upg.contract ? '🌾 Feed shortage, but your miller contract holds your price' : '🌾 Feed shortage: bags cost 40% more');
+    if (s.loan && s.cash < Math.min(s.loan.daily, s.loan.owed)) al.push(`💳 Not enough cash for tomorrow's ${kes(s.loan.daily)} loan instalment`);
+    if (s.flu) al.push(`🦠 Bird flu scare: ${s.flu} more day${s.flu > 1 ? 's' : ''}. Farms without biosecurity may be culled`);
+    if (s.taxOwed > 0) al.push(`🧾 ${kes(s.taxOwed)} tax arrears with KRA, growing 1% a day`);
+    if (hasStaff('hand', F) && handCover(F) < 1) al.push(`👷 Farmhands here cover only ${Math.round(handCover(F) * 100)}% of the birds. Hire more or train them`);
+    else if (!hasStaff('hand', F) && F.birds.length >= 300) al.push('👷 No farmhand on this farm. Big flocks need staff (Staff card)');
+    if (F.birds.length >= 300 && !hasStaff('watch', F)) al.push('🔦 No night watchman: thieves target big farms');
+    const dueLoads = s.contracts.filter(c => c.next <= d).length;
+    if (dueLoads) al.push(`🚚 ${dueLoads} contract load${dueLoads > 1 ? 's' : ''} due today`);
+    if (ev('glut')) al.push(`🥚 Cheap imported eggs: egg prices are 35% down (${s.event.left} day${s.event.left > 1 ? 's' : ''} left)`);
+    if (s.rain) al.push(`🌧 Long rains: litter gets dirty twice as fast (${s.rain} more day${s.rain > 1 ? 's' : ''})`);
+    const dueToday = s.orders.filter(o => o.due === d).length;
+    if (dueToday) al.push(`📦 ${dueToday} order${dueToday > 1 ? 's are' : ' is'} due today`);
+    const alHtml = al.length ? al.map(a => `<div>${a}</div>`).join('') : '<div class="ok">All good on the farm.</div>';
+    if ($('alerts')._h !== alHtml) { $('alerts').innerHTML = alHtml; $('alerts')._h = alHtml; }
+
+    setBtn('aFeeder', `Fill feeder <kbd>F</kbd><small>${kg(F.feeder)} / ${feederCap()} kg</small>`, false, F.feeder < feederCap() * 0.2 && F.birds.length);
+    setBtn('aWater', autoWater() ? 'Water <small>Automatic ✓</small>' : `Fill water <kbd>W</kbd><small>${kg(F.drinker)} / ${kg(drinkCap())} L</small>`, autoWater(), !autoWater() && F.drinker < 2 && F.birds.length);
+    setBtn('aNest', `Collect nest eggs <kbd>E</kbd><small>${F.nestEggs} waiting</small>`, !F.nestEggs, F.nestEggs >= 5);
+    $('aNest').style.display = F !== s ? 'none' : '';
+    setBtn('aDoor', `${F.door ? 'Close' : 'Open'} coop door <kbd>D</kbd><small>${F.door ? 'Open now' : 'Shut now'}</small>`, false, F.door && !F.upg.autodoor && (h >= 17.8 || h < 5));
+    setBtn('aClean', `Clean coop<small>${kes(cleanCost())} fresh shavings</small>`, F.clean > 95, F.clean < 45);
+    setBtn('aVacc', `Vaccinate<small>${unv} birds · ${kes(unv * PRICE.vacc)}</small>`, !unv, unv && F.outbreak);
+    setBtn('aTreat', `Treat coccidiosis with amprolium<small>${sickC} sick · ${kes(treatCost())}</small>`, !sickC, sickC);
+    $('aTreat').style.display = sickC ? '' : 'none';
+    $('aIncubate').style.display = s.upg.incubator ? '' : 'none';
+    const bigInc = s.upg.incubator2 && s.eggs >= 100;
+    setBtn('aIncubate', s.hatch ? `Incubator busy<small>hatching on day ${s.hatch.day}</small>` : bigInc ? 'Incubate 100 eggs<small>about 80 kienyeji chicks in 3 days</small>' : `Incubate 20 eggs<small>about 16 kienyeji chicks in 3 days${s.upg.incubator2 ? ' (100 eggs fills the big one)' : ''}</small>`, !!s.hatch || s.eggs < 20);
+
+    const p = s.prices, pv = s.prev;
+    const bag = bagPrice(), tray = eggEach() * 30, bro = broilerEach();
+    const pr = `<span>Egg tray (30)${s.upg.grading ? ', graded' : ''}</span><b>${kes(tray)} ${arrow(p.tray, pv.tray)}</b><span>Feed, 50 kg${s.upg.mill ? ', own mix' : ''}</span><b>${kes(bag)} ${arrow(p.bag, pv.bag)}</b><span>Broiler, ${s.upg.slaughter ? 'dressed' : 'live'}</span><b>${kes(bro)} ${arrow(p.broiler, pv.broiler)}</b><span>Hen / spent hen</span><b>${kes(henEach())} / ${Math.round(spentEach())} ${arrow(p.spent, pv.spent)}</b><span>Chicks: kienyeji / broiler</span><b>${PRICE.kChick} / ${PRICE.bChick}</b>`;
+    if ($('prices')._h !== pr) { $('prices').innerHTML = pr; $('prices')._h = pr; }
+    const kF = s, bF = homeFarm('b');
+    const roomK = farmCap(kF) - kF.birds.length, batchK = chickBatch(kF);
+    const roomB = farmCap(bF) - bF.birds.length, batchB = chickBatch(bF);
+    const fb = feedBags();
+    setBtn('aBuyFeed', `${s.upg.mill ? 'Mix' : 'Buy'} feed<small>${fb > 1 ? `${fb} × 50 kg · ${kes(fb * bag)}` : `50 kg · ${kes(bag)}`}</small>`, s.cash < bag, s.feedStore < 5 * fb && F.birds.length);
+    setBtn('aSellEggs', `Sell eggs<small>${s.eggs} · ${kes(s.eggs * eggEach())}</small>`, !s.eggs, s.eggs >= 30);
+    setBtn('aBuyK', `${batchK} kienyeji chicks<small>${kes(batchK * PRICE.kChick)} · lay from day 6${two ? ' · kienyeji farm' : ''}</small>`, roomK <= 0 || s.cash < PRICE.kChick);
+    setBtn('aBuyB', `${batchB} broiler chicks<small>${kes(batchB * PRICE.bChick)} · ${two ? 'broiler farm, sell from day 5' : 'sell from day 6'}</small>`, roomB <= 0 || s.cash < PRICE.bChick);
+    setBtn('aSellBroilers', `Sell ready broilers<small>${readyAll} · ${kes(readyAll * bro)}</small>`, !readyAll, readyAll >= 5);
+
+    const rk = `🏅 ${rank().name}`;
+    if ($('cRank').textContent !== rk) $('cRank').textContent = rk;
+    $('repTxt').textContent = `${stars(s.rep)} reputation${s.rival ? ` · ${s.rival.name} has ${Math.round(s.rival.share * 100)}% of buyers` : ''}`;
+    const have = { eggs: s.eggs, broilers: readyAll, hens: hensAll };
+    const os = JSON.stringify([s.orders, have, d]);
+    if (os !== orderSig) {
+      orderSig = os;
+      const unit = { eggs: 'eggs', broilers: 'ready broilers', hens: 'hens' };
+      $('orders').innerHTML = s.orders.length ? s.orders.map(o => {
+        const left = o.due - d, can = have[o.item] >= o.qty;
+        return `<div class="upg${left <= 0 ? ' late' : ''}"><div>${o.who}: <b>${o.qty} ${o.item}</b><small>${kes(o.pay)} (${kes(o.pay / o.qty)} each) · ${left <= 0 ? 'due today!' : `due day ${o.due}, in ${left} day${left > 1 ? 's' : ''}`} · you have ${have[o.item]} ${unit[o.item]}</small></div>` +
+          `<div class="obtns"><button data-a="deliver" data-o="${o.id}" ${can ? '' : 'disabled'}>Deliver</button><button class="alt" data-a="decline" data-o="${o.id}" title="Turn down this order">✕</button></div></div>`;
+      }).join('') : `<p class="empty">No orders right now. Buyers call in the mornings (up to ${orderSlots()} at a time).</p>`;
+    }
+    const oldest = hensAll ? s.birds.reduce((m, b) => (stage(b) === 'hen' && (!m || b.age > m.age) ? b : m), null) : null;
+    setBtn('aSellHen', `Sell oldest hen<small>${oldest ? kes(spent(oldest) ? spentEach() : henEach()) : '–'}</small>`, !hensAll);
+    setBtn('aCull', `Cull spent hens<small>${spentN} hens aged ${SPENT_AGE}+ days · ${kes(spentN * spentEach())}</small>`, !spentN, spentN && spentN >= Math.max(3, hensAll * 0.1));
+
+    // feed sales, special birds and side businesses
+    $('aSellFeed').style.display = s.upg.mill ? '' : 'none';
+    if (s.upg.mill) setBtn('aSellFeed', `Sell own-mix feed to neighbours<small>10 bags · ${kes(10 * Math.round(s.prices.bag * 0.9))} · ${40 - s.feedSold} bags of demand left today</small>`, s.feedStore < 50 || s.feedSold >= 40);
+    $('spCard').hidden = !s.xfarm;
+    if (s.xfarm) {
+      const x = s.xfarm, bx = chickBatch(x), roomX = farmCap(x) - x.birds.length;
+      const spPr = ['q', 'd', 't', 'g'].map(k => `<span>${SPECIES[k].name}: chick / ready bird</span><b>${SPECIES[k].chick} / ${kes(spEach(k))}</b>`).join('') + `<span>Quail eggs, each</span><b>KES ${s.prices.qegg} ${arrow(s.prices.qegg, s.prev.qegg)}</b>`;
+      if ($('spPrices')._h !== spPr) { $('spPrices').innerHTML = spPr; $('spPrices')._h = spPr; }
+      for (const [id, k] of [['aBuyQ', 'q'], ['aBuyD', 'd'], ['aBuyT', 't'], ['aBuyG', 'g']]) {
+        const S = SPECIES[k], lock = S.kws && !s.upg.kws;
+        setBtn(id, `${bx} ${S.plural}<small>${lock ? 'needs KWS permit' : `${kes(bx * S.chick)} · ready at ${S.ready} days`}</small>`, lock || roomX <= 0 || s.cash < S.chick);
+      }
+      const readySp = x.birds.filter(spReady);
+      setBtn('aSellSp', `Sell ready special birds<small>${readySp.length} · ${kes(readySp.reduce((a, b) => a + spEach(b.kind), 0))}</small>`, !readySp.length, readySp.length >= 10);
+      setBtn('aSellQE', `Sell quail eggs<small>${s.qeggs} · ${kes(s.qeggs * s.prices.qegg)}</small>`, !s.qeggs, s.qeggs >= 300);
+    }
+    const bizOn = s.upg.hatchery || s.upg.outlet || s.upg.mill;
+    $('bizCard').hidden = !bizOn;
+    if (bizOn) {
+      const bl = s.bizLast || { doc: 0, plates: 0 };
+      const bz = [s.upg.hatchery ? `🐣 Hatchery: ${hasStaff('attend') ? (s.hatchOn ? `sold <b>${bl.doc}</b> day-old chicks this morning at KES ${s.prices.doc}` : 'paused') : '<b>needs a hatchery attendant</b>'}` : '',
+        s.upg.outlet ? `🍗 Kuku choma outlet: ${hasStaff('cook') ? `<b>${bl.plates}</b> plates this morning` : '<b>needs a cook</b>'}` : '',
+        s.upg.mill ? `🌾 Feed sold to neighbours today: <b>${s.feedSold}</b> of 40 bags` : ''].filter(Boolean).join('<br>');
+      if ($('biz')._h !== bz) { $('biz').innerHTML = bz; $('biz')._h = bz; }
+      $('aHatch').style.display = s.upg.hatchery ? '' : 'none';
+      setBtn('aHatch', s.hatchOn ? 'Pause the hatchery<small>keep all eggs for sale and contracts</small>' : 'Restart the hatchery<small>hatch spare eggs each morning</small>', false);
+    }
+    // staff
+    const stSig = JSON.stringify([s.staff, s.view, two, s.upg.truck, s.upg.outlet, s.upg.hatchery, Math.floor(s.cash / 1000), d]);
+    if (stSig !== staffSig) {
+      staffSig = stSig;
+      const nextPay = d % 7 === 0 ? d + 7 : Math.ceil(d / 7) * 7;
+      $('staffTxt').textContent = s.staff.length ? `${s.staff.length} · ${kes(weeklyWages())}/week · payday day ${nextPay}` : '';
+      const tagOf = w => (w.farm === null ? '' : ` <em class="tag">${farmName(farmAt(w.farm)).toLowerCase()}</em>`);
+      $('staff').innerHTML = s.staff.length ? s.staff.map(w => `<div class="upg${w.morale < 40 ? ' late' : ''}"><div>${w.name} · ${ROLES[w.role].name}${tagOf(w)}<small>${'★'.repeat(w.skill)}${'☆'.repeat(3 - w.skill)} · morale ${Math.round(w.morale)}% · ${kes(wageOf(w))}/day${w.owed > 0 ? ` · owed ${kes(w.owed)}` : ''}</small></div>` +
+        `<div class="obtns">${w.skill < 3 ? `<button data-a="train" data-o="${w.id}" ${s.cash < trainCost(w) ? 'disabled' : ''} title="Training raises skill; wages rise 30% a level">Train ${kes(trainCost(w))}</button>` : ''}<button class="alt" data-a="fire" data-o="${w.id}" title="Let go and pay what they are owed">✕</button></div></div>`).join('')
+        : '<p class="empty">No workers yet. Big farms need farmhands, egg collectors and a night watchman.</p>';
+      $('hire').innerHTML = Object.entries(ROLES).map(([id, r]) => {
+        const need = r.need && !s.upg[r.need], full = (r.max && staffOn(id).length >= r.max) || s.staff.length >= MAX_STAFF;
+        const wage = Math.round(r.wage * STATUTORY);
+        return `<button data-a="hire" data-o="${id}" ${need || full ? 'disabled' : ''} title="${r.desc}">Hire ${r.name.toLowerCase()}<small>${kes(wage)}/day${r.farm ? (two ? ` · ${farmName(F).toLowerCase()}` : '') : need ? ` · needs ${UPGRADES.find(u => u.id === r.need).name.toLowerCase()}` : ''}</small></button>`;
+      }).join('');
+    }
+    // contracts
+    const cSig = JSON.stringify([s.contracts, s.offers, s.receivables.length, s.eggs >= 30 ? Math.floor(s.eggs / 30) : 0, readyAll, d, contractSlots()]);
+    if (cSig !== conSig) {
+      conSig = cSig;
+      $('conTxt').textContent = `${s.contracts.length} / ${contractSlots()} running`;
+      const stock = { eggs: s.eggs, broilers: readyAll };
+      const act = s.contracts.map(c => {
+        const due = c.next <= d, can = due && stock[c.item] >= c.qty;
+        return `<div class="upg${c.missed ? ' late' : ''}"><div>${c.who}: <b>${c.qty} ${c.item} ${c.every === 1 ? 'daily' : 'weekly'}</b><small>${c.total - c.left} of ${c.total} loads done · ${kes(c.payEach)} a load, paid ${c.credit} days later · ${due ? '<b>load due today</b>' : `next load day ${c.next}`}${c.missed ? ` · ${c.missed} missed` : ''}</small></div><button data-a="supply" data-o="${c.id}" ${can ? '' : 'disabled'}>Supply</button></div>`;
+      }).join('');
+      const offs = s.offers.map(o => `<div class="upg"><div>${o.who}: <b>${o.qty} ${o.item} ${o.every === 1 ? 'daily' : 'weekly'}</b> for ${o.total} loads<small>${kes(o.payEach)} a load (${kes(o.payEach / o.qty)} each) · pays ${o.credit} days after each load · first load day ${o.next} · 3 misses and they cancel with penalties</small></div><div class="obtns"><button data-a="accept" data-o="${o.id}" ${s.contracts.length >= contractSlots() ? 'disabled' : ''}>Sign</button><button class="alt" data-a="reject" data-o="${o.id}" title="Turn it down">✕</button></div></div>`).join('');
+      const owed = s.receivables.reduce((a, r) => a + r.amt, 0), late = s.receivables.filter(r => r.late).length;
+      const rx = s.receivables.length ? `<p class="empty">Owed to you: <b>${kes(owed)}</b> in ${s.receivables.length} invoice${s.receivables.length > 1 ? 's' : ''}${late ? `, ${late} late` : ''}. Next payment due day ${Math.min(...s.receivables.map(r => r.due))}.</p>` : '';
+      $('contracts').innerHTML = (act || '<p class="empty">No contracts running. Big buyers offer new ones every week from day 10.</p>') + (offs ? `<p class="sub">Offers this week</p>${offs}` : '') + rx;
+    }
+
+    const nAll = totalBirds();
+    const ls2 = JSON.stringify([s.loan, s.rep, nAll >= 60, nAll >= 150, nAll >= 350, d >= 3, Math.floor(s.cash / 500)]);
+    if (ls2 !== loanSig) {
+      loanSig = ls2;
+      if (s.loan) {
+        const L = s.loan;
+        $('loans').innerHTML = `<div class="upg${L.missed ? ' late' : ''}"><div>${L.name}: <b>${kes(L.owed)} owed</b><small>${kes(Math.min(L.daily, L.owed))} is taken each morning${L.missed ? ` · ${L.missed} missed, ${3 - L.missed} more and they take birds` : ''}</small></div><button data-a="repay" ${s.cash < L.owed ? 'disabled' : ''}>Repay ${kes(L.owed)}</button></div>`;
+      } else {
+        $('loans').innerHTML = loanOffers().map(o => {
+          const need = o.ok ? '' : ` · needs ${[o.minDay && d < o.minDay ? `day ${o.minDay}` : '', nAll < o.birds ? `${o.birds}+ birds` : '', s.rep < o.rep ? `${o.rep}★` : ''].filter(Boolean).join(', ')}`;
+          return `<div class="upg"><div>${o.name}: ${kes(o.amt)}<small>${Math.round(o.rate * 100)}% flat · ${kes(o.daily)}/day for ${o.days} days${need}</small></div><button data-a="borrow" data-o="${o.id}" ${o.ok ? '' : 'disabled'}>Borrow</button></div>`;
+        }).join('');
+      }
+    }
+    const y = s.hist[s.hist.length - 1];
+    const rs = y ? `Day ${y.d}: <b>${kes(y.income)}</b> in, <b>${kes(running(y))}</b> running costs, profit <b>${kes(y.income - running(y))}</b><br>${y.laid} eggs from ${y.hens} hens (${y.hens ? Math.round(y.laid / y.hens * 100) : 0}% lay rate) · ${y.deaths} died${y.capex ? ` · ${kes(y.capex)} on upgrades` : ''}` : 'Records start after your first full day.';
+    if ($('recSum')._h !== rs) { $('recSum').innerHTML = rs; $('recSum')._h = rs; }
+
+    const us = JSON.stringify([s.upg, F.upg, s.view, F.coop, s.coop, two, Math.floor(s.cash / 500)]);
+    if (us !== upgSig) {
+      upgSig = us;
+      const rows = [];
+      const costs = tierCosts(F);
+      if (F.coop < costs.length) {
+        const next = FT[ftype(F)].caps[F.coop + 1];
+        rows.push({ id: 'coop', name: tierName(F, next), desc: `Now holds ${cap().toLocaleString('en-KE')}`, cost: costs[F.coop] });
+      }
+      if (!s.xfarm && s.coop >= 3 && F === s) rows.push({ id: 'xfarm', name: 'Build a special birds farm', desc: `Quail, ducks, turkeys and guinea fowl. Starts at ${X_CAPS[0]} birds and grows to 5,000`, cost: XFARM_COST });
+      if (!s.bfarm && s.coop >= 2) rows.push({ id: 'bfarm', name: 'Build a separate broiler farm', desc: `Starts at ${B_CAPS[0]} broilers and grows to 5,000. Diseases stay apart, broilers are ready at 5 days, and layers lay 5% more`, cost: BFARM_COST });
+      const owns = u => (FARM_UPG.includes(u.id) ? F.upg : s.upg)[u.id];
+      // Unowned first, so new things to buy are not buried under the ticked-off list.
+      const equip = farmUpgrades(F).filter(u => s.coop >= (u.minCoop || 0));
+      const biz = UPGRADES.filter(u => !FARM_UPG.includes(u.id) && (!u.req || s.upg[u.req]) && s.coop >= (u.minCoop || 0));
+      const avail = equip.concat(biz);
+      rows.push(...avail.filter(u => !owns(u)), ...avail.filter(owns));
+      $('upgs').innerHTML = rows.map(u => {
+        const owned = !['coop', 'bfarm', 'xfarm'].includes(u.id) && owns(u);
+        const tag = two && FARM_UPG.includes(u.id) ? ` <em class="tag">${farmName(F).toLowerCase()}</em>` : '';
+        return `<div class="upg${owned ? ' owned' : ''}"><div>${u.name}${tag}<small>${u.desc}</small></div>${owned ? '<span>✓</span>' : `<button data-u="${u.id}" ${s.cash < u.cost ? 'disabled' : ''}>${kes(u.cost)}</button>`}</div>`;
+      }).join('');
+    }
+    const gs = JSON.stringify(s.goals);
+    if (gs !== goalSig) { goalSig = gs; $('goals').innerHTML = GOALS.map(g => `<li class="${s.goals[g.id] ? 'done' : ''}">${s.goals[g.id] ? '✅' : '⬜'} ${g.t}</li>`).join(''); }
+    const ls = s.log.length + ':' + (s.log[0] ? s.log[0].msg : '');
+    if (ls !== logSig) {
+      logSig = ls;
+      $('log').innerHTML = s.log.slice(0, 25).map(l => `<li class="${l.kind}"><b>D${l.d} ${String(Math.floor(l.h)).padStart(2, '0')}:00</b> ${l.msg}</li>`).join('');
+    }
+    document.querySelectorAll('[data-speed]').forEach(b => b.classList.toggle('on', +b.dataset.speed === speed));
+    $('bMute').textContent = muted ? '🔇' : '🔊';
+  }
+
+  // Short list of what needs doing on a farm, for the alert about the farm you are not watching.
+  function farmIssues(f, h) {
+    return inFarm(f, () => {
+      if (!F.birds.length) return [];
+      const out = [];
+      if (F.feeder <= 0) out.push('feeder empty');
+      if (!autoWater() && F.drinker <= 0) out.push('drinker empty');
+      if (F.door && !F.upg.autodoor && (h >= 17.8 || h < 5)) out.push('door still open');
+      let nd = 0, co = 0;
+      for (const b of F.birds) { if (b.sick === 'nd') nd++; else if (b.sick === 'cocci') co++; }
+      if (nd) out.push(`${nd} with Newcastle`);
+      if (co) out.push(`${co} with coccidiosis`);
+      if (F.clean < 45) out.push('dirty litter');
+      if (F.yardEggs.length) out.push(`${F.yardEggs.length} eggs in the yard`);
+      if (F.nestEggs >= 10) out.push(`${F.nestEggs} eggs in the nest box`);
+      return out;
+    });
+  }
+  const K_TIER = ['', 'Extend the coop', 'Extend the coop', 'Extend the coop', 'Build a second poultry house', 'Build a third poultry house', 'Build a big layer unit up the hill', 'Build a commercial layer complex'];
+  const B_TIER = ['', 'Expand the broiler farm', 'Expand the broiler farm', 'Add a big broiler house', 'Build a commercial broiler complex'];
+  const X_TIER = ['', 'Expand the special birds farm', 'Add a big special birds house', 'Build a special birds complex'];
+  const tierName = (f, next) => `${({ k: K_TIER, b: B_TIER, x: X_TIER })[ftype(f)][f.coop + 1]}: ${next.toLocaleString('en-KE')} birds`;
+
+  function setSpeed(v) { if (v > 0) lastSpeed = v; speed = v; refreshUI(); }
+
+  function modal(html, buttons) {
+    modalOpen = true;
+    $('modalBox').classList.remove('wide');
+    $('modalBox').innerHTML = html + '<div class="row">' + buttons.map((b, i) => `<button data-m="${i}" class="${b.alt ? 'alt' : ''}">${b.label}</button>`).join('') + '</div>';
+    $('modal').classList.remove('hidden');
+    $('modalBox').querySelectorAll('[data-m]').forEach(el => el.addEventListener('click', () => {
+      $('modal').classList.add('hidden'); modalOpen = false; buttons[+el.dataset.m].fn();
+    }));
+  }
+
+  const HOW = `<ul>
+    <li><b>Keep them fed and watered.</b> Fill the feeder (F) and drinker (W). Buy 50 kg bags when the feed store runs low.</li>
+    <li><b>Collect eggs.</b> Most hens lay in the nest box (E). Some lay out in the yard, so click those eggs before dark or the rats get them.</li>
+    <li><b>Close the coop at dusk</b> (D), or a genet or mongoose will get in.</li>
+    <li><b>Hawks</b> (mwewe) hunt chicks by day. Click one to chase it off.</li>
+    <li><b>Vaccinate</b> against Newcastle (kideri). There is no cure once birds catch it. Clean the litter to prevent coccidiosis.</li>
+    <li><b>Kienyeji chicks</b> become laying hens at 6 days. <b>Broilers</b> are ready to sell at 6 days.</li>
+    <li><b>Customer orders</b> pay above market. Deliver on time to build your reputation; missed orders hurt it.</li>
+    <li><b>Hens age.</b> They lay less after 50 days and are spent at 75. Cull spent hens and restock with young layers.</li>
+    <li><b>Christmas and Easter</b> come every 40 days from day 35 and lift broiler prices 40%. Plan a batch for them.</li>
+    <li><b>Loans</b> from a chama, SACCO or bank let you grow faster, but miss three instalments and they take birds.</li>
+    <li><b>A separate broiler farm</b> (from a 180-bird coop) keeps diseases apart, finishes broilers a day sooner and lets layers lay more. Each farm grows to 5,000 birds.</li>
+    <li><b>Staff</b>: big farms need farmhands, egg collectors and a night watchman. Pay them every week.</li>
+    <li><b>Margins are thin</b>, as on a real farm: feed is most of your cost, and power, repairs, tax and theft eat the rest.</li>
+  </ul>`;
+  const WHATS_NEW = `<p><b>New on the farm:</b></p><ul>
+    <li><b>Customer orders</b> from schools, hotels, butcheries and weddings, with a ★ reputation</li>
+    <li><b>Second and third poultry houses</b>: grow to 700, then 1,200 birds. Chicks now come 50 at a time once you hold 400+</li>
+    <li><b>Business upgrades</b>: vet on retainer, manure shed, egg grading, feed mill, slaughter slab and cold room, and a pickup truck for Nairobi buyers</li>
+    <li><b>Long rains</b> that make the litter dirty twice as fast</li>
+    <li><b>New goals</b>, all the way up to <b>KES 1,000,000</b></li>
+  </ul>`;
+
+  const WHATS_NEW_2 = `<p><b>New this season:</b></p><ul>
+    <li><b>Hens age</b>: laying tapers after 50 days, and hens are spent at ${SPENT_AGE}. Cull them in the market (they look duller) and restock</li>
+    <li><b>Loans</b> from a chama, a SACCO or a bank, repaid a little each morning</li>
+    <li><b>Christmas and Easter</b> every 40 days from day 35 (broilers +40%), plus droughts and feed shortages</li>
+    <li><b>Farm records</b>: a chart of daily income and costs, and your lay rate</li>
+    <li><b>New upgrades</b>: gas brooder, M-Pesa till, rainwater tank, insurance, miller contract and a big incubator</li>
+    <li>Cleaning and treatment now cost more on a big farm</li>
+  </ul>`;
+  const WHATS_NEW_3 = `<p><b>New: two farms</b></p><ul>
+    <li><b>Build a separate broiler farm</b> (KES 40,000, once your coop holds 180). Your broilers move over, and new broiler chicks go there</li>
+    <li><b>Why separate?</b> Newcastle and coccidiosis stay on one farm, broilers on broiler feed are ready at 5 days, and layers lay 5% more without broilers crowding the feeders</li>
+    <li>Each farm has its own feeder, drinker, door, litter, farmhand and equipment. Switch with the tabs above the yard (or <b>S</b>). Alerts warn you about the farm you are not watching</li>
+    <li><b>Bigger farms</b>: the kienyeji farm grows to 2,500 and 5,000 birds; the broiler farm to 500, 1,000, 2,500 and 5,000</li>
+    <li>A new top goal: <b>KES 5,000,000</b></li>
+  </ul>`;
+
+  const WHATS_NEW_4 = `<p><b>Kuku Empire: farming gets real</b></p><ul>
+    <li><b>Real costs</b>: feed is ~KES 78/kg, broilers eat ~3.3 kg each, improved kienyeji lay ~5 eggs a week. Power, water and house repairs cost money every day. KRA turnover tax (1.5%) every 30 days once you have earned KES 1M, and a county permit every 60 days</li>
+    <li><b>Real risks</b>: eggs break, thieves raid big farms, a few birds die every day, cheap imported eggs crash prices, bird flu scares, and a rival farm fights you for buyers</li>
+    <li><b>Staff</b>: hire named farmhands, egg collectors, night watchmen, drivers, a farm manager and more. Pay them weekly, train them, keep morale up. Your old farmhands are now staff</li>
+    <li><b>Supply contracts</b> with supermarkets, hospitals, schools and hotels: steady loads paid on credit. Some pay late, a few never pay</li>
+    <li><b>Special birds farm</b>: quail, ducks, turkeys and guinea fowl (quail and guinea fowl need a KWS permit)</li>
+    <li><b>New businesses</b>: a hatchery, feed sales, biogas, and a kuku choma outlet in Meru town</li>
+    <li><b>30 achievements</b> and a farm rank from Mkulima to Legend of Mt Kenya (🏅 in the header)</li>
+  </ul>`;
+
+  // A first-time player gets these short pages instead of the full HOW list, which assumes you know the game.
+  const GUIDE = [
+    `<p class="step">How to play · 1 of 4</p><h2>🐔 Karibu to Kuku Farm</h2>
+     <p>You have a small coop in Meru, below Mt Kenya: <b>6 kienyeji hens, 4 chicks and KES 6,000</b>. Your goal is to grow it into a <b>KES 250,000</b> poultry business.</p>
+     <p>The <b>yard</b> is the picture of your farm. Below it (or beside it on a laptop) are the <b>Flock, Chores and Market</b> panels with all the buttons.</p>
+     <p>One farm day lasts about 100 seconds. Use <b>1× 2× 4×</b> at the top to speed up, or ⏸ to pause.</p>`,
+    `<p class="step">How to play · 2 of 4</p><h2>🌾 Every day</h2><ul>
+     <li><b>Feed and water.</b> Tap the feeder or drinker in the yard, or use the <b>Chores</b> buttons. Keep the <b>Fed</b> and <b>Water</b> bars up, because hungry or thirsty birds die.</li>
+     <li><b>Collect eggs.</b> Tap the nest box. Some hens lay out in the yard, so tap those eggs before dark or the rats take them.</li>
+     <li><b>Sell eggs</b> in the <b>Market</b> panel. That's your money.</li>
+     <li><b>Buy feed bags</b> in the Market before the 🌾 store at the top runs out.</li></ul>`,
+    `<p class="step">How to play · 3 of 4</p><h2>🦅 Keep them safe</h2><ul>
+     <li><b>Close the coop door at dusk</b>, or a genet or mongoose gets in at night. It opens again by itself at dawn.</li>
+     <li><b>Hawks</b> (mwewe) swoop on chicks by day. Tap the hawk quickly to chase it off.</li>
+     <li><b>Vaccinate early</b> against Newcastle (kideri). There is no cure once it spreads.</li>
+     <li><b>Clean the litter</b> now and then to stop coccidiosis.</li></ul>
+     <p>Red messages in the Flock panel tell you what needs doing.</p>`,
+    `<p class="step">How to play · 4 of 4</p><h2>📈 Growing your farm</h2><ul>
+     <li><b>Kienyeji chicks</b> grow into laying hens in 6 days. <b>Broiler chicks</b> are ready to sell in 6 days.</li>
+     <li>Spend your profits on more chicks and on <b>Upgrades</b>: bigger coops, better feeders, a guard dog.</li>
+     <li>Start small. Don't spend your last shillings, because you still need feed.</li></ul>
+     <details><summary>Tips for later in the game</summary>${HOW}</details>
+     <p>Press <b>❓</b> at the top any time to see this again. Your farm saves on its own.</p>`,
+  ];
+  function showGuide(i, done, doneLabel) {
+    const btns = [];
+    if (i > 0) btns.push({ label: '← Back', alt: true, fn: () => showGuide(i - 1, done, doneLabel) });
+    btns.push(i < GUIDE.length - 1
+      ? { label: 'Next →', fn: () => showGuide(i + 1, done, doneLabel) }
+      : { label: doneLabel, fn: done });
+    modal(GUIDE[i], btns);
+  }
+
+  function showIntro(saved) {
+    speed = 0;
+    const btns = saved
+      ? [{ label: `Continue (day ${dayOf(saved.T)})`, fn: () => { s = saved; F = viewFarm(); setSpeed(lastSpeed || 1); } },
+         { label: 'Start a new farm', alt: true, fn: () => { freshState(); setSpeed(1); save(); } }]
+      : [{ label: 'Start farming', fn: () => { setSpeed(1); save(); } }];
+    if (saved && oldFeat < FEAT) {
+      const spentOld = saved.birds.filter(spent).length;
+      modal(`<h2>🐔 Karibu tena!</h2><p>Your farm is on <b>day ${dayOf(saved.T)}</b> with <b>${saved.birds.length} birds</b> and <b>${kes(saved.cash)}</b>.</p>${oldFeat < 1 ? WHATS_NEW : ''}${oldFeat < 2 ? WHATS_NEW_2 : ''}${oldFeat < 3 ? WHATS_NEW_3 : ''}${WHATS_NEW_4}${oldFeat < 2 && spentOld ? `<p><b>Heads up:</b> ${spentOld} of your hens are already past ${SPENT_AGE} days. Cull them to make room for young layers.</p>` : ''}`, btns);
+      return;
+    }
+    if (!saved) return showGuide(0, btns[0].fn, btns[0].label);
+    modal(`<h2>🐔 Karibu tena!</h2><p>Your farm is on <b>day ${dayOf(saved.T)}</b> with <b>${saved.birds.length} birds</b> and <b>${kes(saved.cash)}</b>.</p><p>Press <b>❓</b> at the top any time for the guide.</p>`, btns);
+  }
+  // ---------- records screen ----------
+  const REC_COL = { income: '#3b8ad0', costs: '#c27a1c' };   // validated for CVD and contrast on the dark panel
+  // A bar with 4px rounded ends at the top, square on the baseline.
+  function barPath(x, y, w, h) {
+    if (h <= 0) return '';
+    const r = Math.min(4, w / 2, h);
+    return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+  }
+  function niceMax(v) {
+    if (v <= 0) return 1000;
+    const p = Math.pow(10, Math.floor(Math.log10(v))), m = v / p;
+    return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p;
+  }
+  const kShort = n => (n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M' : n >= 1000 ? Math.round(n / 1000) + 'k' : String(Math.round(n)));
+  function recTip(r) {
+    return `Day ${r.d}: income ${kes(r.income)} · running costs ${kes(running(r))} · profit ${kes(r.income - running(r))} · ${r.laid} eggs from ${r.hens} hens`;
+  }
+  function recordsChart(rows) {
+    const Wc = 600, Hc = 220, L = 44, R = 8, T = 10, B = 26, ph = Hc - T - B, pw = Wc - L - R;
+    const max = niceMax(Math.max(...rows.map(r => Math.max(r.income, running(r)))));
+    const gw = pw / rows.length, bw = Math.max(3, Math.min(16, (gw - 8) / 2));
+    let g = '';
+    for (let i = 0; i <= 4; i++) {
+      const y = T + ph - ph * i / 4;
+      g += `<line x1="${L}" x2="${Wc - R}" y1="${y}" y2="${y}" stroke="rgba(255,247,232,${i ? 0.08 : 0.25})"/>`;
+      g += `<text x="${L - 6}" y="${y + 4}" text-anchor="end">${kShort(max * i / 4)}</text>`;
+    }
+    rows.forEach((r, i) => {
+      const cx = L + gw * i + gw / 2, hi = ph * r.income / max, hc = ph * running(r) / max;
+      g += `<rect class="hit" data-rd="${i}" x="${L + gw * i}" y="${T}" width="${gw}" height="${ph}"><title>${recTip(r)}</title></rect>`;
+      g += `<path d="${barPath(cx - bw - 1, T + ph - hi, bw, hi)}" fill="${REC_COL.income}" pointer-events="none"/>`;
+      g += `<path d="${barPath(cx + 1, T + ph - hc, bw, hc)}" fill="${REC_COL.costs}" pointer-events="none"/>`;
+      if (rows.length <= 7 || (rows.length - 1 - i) % 2 === 0) g += `<text x="${cx}" y="${Hc - 8}" text-anchor="middle">D${r.d}</text>`;
+    });
+    return `<svg class="rec-chart" viewBox="0 0 ${Wc} ${Hc}" role="img" aria-label="Daily income and running costs for the last ${rows.length} days">${g}</svg>`;
+  }
+  function recordsTable(rows) {
+    const sum = f => rows.reduce((a, r) => a + f(r), 0);
+    const last = rows[rows.length - 1];
+    const henDays = sum(r => r.hens);
+    const lines = [
+      ['Eggs laid', r => String(r.laid), sum(r => r.laid)],
+      ['Lay rate', r => (r.hens ? Math.round(r.laid / r.hens * 100) : 0) + '%', (henDays ? Math.round(sum(r => r.laid) / henDays * 100) : 0) + '%'],
+      ['Income', r => kes(r.income), kes(sum(r => r.income))],
+      ...COST_KINDS.map(k => [`− ${k[0].toUpperCase() + k.slice(1)}`, r => kes(r.costs[k] || 0), kes(sum(r => r.costs[k] || 0))]),
+      ['Profit (before upgrades)', r => kes(r.income - running(r)), kes(sum(r => r.income - running(r))), 'total'],
+      ['Spent on upgrades', r => kes(r.capex), kes(sum(r => r.capex))],
+      ['Birds died', r => String(r.deaths), sum(r => r.deaths)],
+    ];
+    return `<table class="rec-table"><thead><tr><th></th><th>Day ${last.d}</th><th>Last ${rows.length} days</th></tr></thead><tbody>` +
+      lines.map(([name, one, tot, cls]) => `<tr class="${cls || ''}"><td>${name}</td><td>${one(last)}</td><td>${tot}</td></tr>`).join('') + '</tbody></table>';
+  }
+  function showRecords() {
+    const was = speed || lastSpeed;
+    speed = 0;
+    const rows = s.hist.slice(-14);
+    const week = s.hist.slice(-7);
+    const body = rows.length
+      ? `<p>Income and running costs (feed, chicks, health, labour, loan instalments, other) for the last ${rows.length} days. Upgrades are shown separately because they are one-off investments. Hover or tap a day for details.</p>
+         <div class="legend"><span><i style="background:${REC_COL.income}"></i>Income</span><span><i style="background:${REC_COL.costs}"></i>Running costs</span></div>
+         ${recordsChart(rows)}<div class="rec-tip" id="recTip">${recTip(rows[rows.length - 1])}</div>${recordsTable(week)}`
+      : '<p>Your records start after your first full day on the farm. Come back tomorrow morning.</p>';
+    modal(`<h2>📊 Farm records</h2>${body}`, [{ label: 'Back to the farm', fn: () => setSpeed(was) }]);
+    $('modalBox').classList.add('wide');
+    $('modalBox').querySelectorAll('[data-rd]').forEach(el => {
+      const show = () => {
+        $('recTip').textContent = recTip(rows[+el.dataset.rd]);
+        $('modalBox').querySelectorAll('.hit.on').forEach(x => x.classList.remove('on'));
+        el.classList.add('on');
+      };
+      el.addEventListener('mouseenter', show);
+      el.addEventListener('click', show);
+    });
+  }
+
+  function showAch() {
+    const was = speed || lastSpeed;
+    speed = 0;
+    const r = rank(), ri = RANKS.indexOf(r), next = RANKS[ri + 1], n = achCount();
+    const fmt = v => (v >= 1e6 ? (v / 1e6).toFixed(v >= 1e7 ? 0 : 1) + 'M' : v >= 1e4 ? Math.round(v / 1000) + 'k' : String(Math.round(v)));
+    const items = ACH.slice().sort((a, b) => !!s.ach[a.id] - !!s.ach[b.id]).map(a => {
+      const [cur, goal] = a.p(), done = !!s.ach[a.id], pct = Math.min(100, cur / goal * 100);
+      return `<li class="${done ? 'done' : ''}">${done ? '✅' : '⬜'} ${a.t}<small>${done ? `done on day ${s.ach[a.id]}` : `${fmt(cur)} / ${fmt(goal)}`}</small>${done ? '' : `<div class="bar"><i style="width:${pct}%"></i></div>`}</li>`;
+    }).join('');
+    modal(`<h2>🏅 ${r.name}</h2><p><b>${n}</b> of ${ACH.length} achievements · net worth <b>${kes(netWorth())}</b>.${next ? ` Next rank, <b>${next.name}</b>: ${next.ach} achievements and ${kes(next.nw)}.` : ' You have reached the top.'}</p>
+      <div class="ranks">${RANKS.map((x, i) => `<span class="${i === ri ? 'on' : ''}">${x.name}</span>`).join('')}</div><ul class="ach">${items}</ul>`,
+      [{ label: 'Back to the farm', fn: () => setSpeed(was) }]);
+    $('modalBox').classList.add('wide');
+  }
+
+  function showTycoon() {
+    speed = 0;
+    modal(`<h2>🏔 Mt Kenya poultry tycoon!</h2><p><b>${kes(s.cash)}</b> in the bank on day <b>${dayOf(s.T)}</b>, with ${totalBirds()} birds and a ${stars(s.rep)} name among buyers.</p>
+      <p>Orders delivered: <b>${s.stats.orders}</b> · Eggs sold: <b>${s.stats.sold}</b> · Broilers sold: <b>${s.stats.broilersSold}</b> · Manure sold: <b>${kes(s.stats.manure)}</b></p>`,
+      [{ label: 'Keep farming', fn: () => setSpeed(lastSpeed || 1) }, { label: 'New farm', alt: true, fn: () => { freshState(); setSpeed(1); save(); } }]);
+  }
+  function showMogul() {
+    speed = 0;
+    modal(`<h2>🌍 East Africa poultry mogul!</h2><p><b>${kes(s.cash)}</b> on day <b>${dayOf(s.T)}</b>. Your ${s.bfarm ? 'two farms hold' : 'farm holds'} <b>${totalBirds().toLocaleString('en-KE')}</b> birds, and buyers from Meru to Nairobi know your name.</p>
+      <p>Orders delivered: <b>${s.stats.orders}</b> · Eggs sold: <b>${s.stats.sold.toLocaleString('en-KE')}</b> · Broilers sold: <b>${s.stats.broilersSold.toLocaleString('en-KE')}</b></p>`,
+      [{ label: 'Keep farming', fn: () => setSpeed(lastSpeed || 1) }, { label: 'New farm', alt: true, fn: () => { freshState(); setSpeed(1); save(); } }]);
+  }
+  function showWin() {
+    speed = 0;
+    modal(`<h2>🏆 Meru poultry baron!</h2><p>You built the farm up to <b>${kes(s.cash)}</b> in <b>${dayOf(s.T)} days</b>, with ${totalBirds()} birds.</p>
+      <p>Eggs laid: <b>${s.stats.laid}</b> · Eggs sold: <b>${s.stats.sold}</b> · Broilers sold: <b>${s.stats.broilersSold}</b> · Hawks chased off: <b>${s.stats.hawks}</b> · Birds lost: <b>${s.stats.deaths}</b></p>`,
+      [{ label: 'Keep farming', fn: () => setSpeed(lastSpeed || 1) }, { label: 'New farm', alt: true, fn: () => { freshState(); setSpeed(1); save(); } }]);
+  }
+  function showOver() {
+    speed = 0;
+    modal(`<h2>The coop is empty</h2><p>You have no birds left and not enough money for chicks. Every farmer in Meru has had a season like this.</p><p>You lasted <b>${dayOf(s.T)} days</b> and sold <b>${s.stats.sold}</b> eggs.</p>`,
+      [{ label: 'Start again', fn: () => { freshState(); setSpeed(1); save(); } }]);
+  }
+
+  // ---------- input ----------
+  function bindUI() {
+    cv.addEventListener('pointerdown', e => {
+      const r = cv.getBoundingClientRect();
+      clickAt((e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H);
+      refreshUI();
+    });
+    cv.addEventListener('pointermove', e => {
+      const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H;
+      const hot = (hawk && Math.hypot(x - hawk.x, y - hawk.y) < 50) || F.yardEggs.some(g => Math.hypot(x - g.x, y - g.y) < 18) ||
+        [NEST, FEEDER, DRINK, DOOR].some(rr => inRect(x, y, rr));
+      cv.style.cursor = hot ? 'pointer' : 'default';
+    });
+    document.addEventListener('click', e => {
+      const a = e.target.closest && e.target.closest('[data-a]');
+      if (a && !a.disabled) return act(a.dataset.a, a.dataset.o);
+      const u = e.target.closest && e.target.closest('[data-u]');
+      if (u && !u.disabled) return buyUpgrade(u.dataset.u);
+      const sp = e.target.closest && e.target.closest('[data-speed]');
+      if (sp && !modalOpen) return setSpeed(+sp.dataset.speed);
+    });
+    $('bMute').addEventListener('click', () => {
+      muted = !muted;
+      try { localStorage.setItem('kukuFarm.mute', muted ? '1' : '0'); } catch (e) { console.warn('Could not save sound setting', e); }
+      refreshUI();
+    });
+    $('bHelp').addEventListener('click', () => {
+      if (modalOpen) return;
+      const was = speed; speed = 0;
+      showGuide(0, () => setSpeed(was), 'Back to my farm');
+    });
+    $('bNew').addEventListener('click', () => {
+      const was = speed; speed = 0;
+      modal('<h2>Start a new farm?</h2><p>This replaces your current farm.</p>', [
+        { label: 'Yes, start over', fn: () => { freshState(); hawk = null; setSpeed(1); save(); } },
+        { label: 'Keep my farm', alt: true, fn: () => setSpeed(was) }]);
+    });
+    window.addEventListener('keydown', e => {
+      if (modalOpen || e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === ' ') { e.preventDefault(); setSpeed(speed ? 0 : lastSpeed); }
+      else if (k === 'f') act('feeder'); else if (k === 'w') act('water');
+      else if (k === 'e') act('nest'); else if (k === 'd') act('door');
+      else if (k === 's') { const idx = farms().map(farmIdx), at = idx.indexOf(s.view); act('view', idx[(at + 1) % idx.length]); }
+      else if (k === '1' || k === '2' || k === '4') setSpeed(+k);
+    });
+    window.addEventListener('pagehide', save);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  }
+
+  let last = performance.now(), uiT = 0, saveT = 0;
+  function frame(now) {
+    const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
+    last = now;
+    if (!modalOpen) update(dt);
+    render();
+    uiT += dt; saveT += dt;
+    if (uiT > 0.25) { uiT = 0; refreshUI(); }
+    if (saveT > 15) { saveT = 0; save(); }
+    requestAnimationFrame(frame);
+  }
+
+  window.KukuFarm = {
+    get s() { return s; }, get hawk() { return hawk; }, set hawk(v) { hawk = v; },
+    freshState, simHours, update, render, refreshUI, act, buyUpgrade, clickAt, setSeed, stage, ready, save, load,
+    setSpeed, spawnHawk, scareHawk, updateHawk, newDay, dayOf, hourOf, feederCap, cap, UPGRADES, GOALS, NEST, FEEDER,
+    newOrder, dailyOrders, orderSlots, bagPrice, eggEach, broilerEach, chickBatch, migrate, visibleBirds,
+    layFactor, makeBird, spentHens, spentEach, loanOffers, festiveName, cleanCost, treatCost, showRecords, showGuide, GUIDE,
+    upgradedSave: () => oldFeat < FEAT, contractSlots, SPECIES, spEach, spReady, ACH, rank, showAch,
+    farmCap, farmUpgrades, layChance, feedBags, view: () => F, FEED, PRICE, upkeepToday, handCover,
+    setState(o) { s = o; F = viewFarm(); hawk = null; },
+  };
+
+  const saved = load();
+  freshState();
+  bindUI();
+  refreshUI();
+  showIntro(saved);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
